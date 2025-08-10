@@ -383,6 +383,25 @@ app.put('/api/patients/:id/vitals', authenticateToken, async (req, res) => {
   }
 });
 
+// Get patient by UHI No or Name for chatbot
+app.get('/api/chatbot/:identifier', async (req, res) => {
+  try {
+    const identifier = decodeURIComponent(req.params.identifier);
+    const patient = await Patient.findOne({
+      $or: [
+        { patientName: identifier },
+        { uhiNo: identifier }
+      ]
+    });
+
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    res.json(patient);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Add or update parameter
 app.post('/api/patients/:id/parameters', authenticateToken, async (req, res) => {

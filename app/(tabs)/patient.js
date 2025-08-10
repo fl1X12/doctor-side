@@ -79,6 +79,7 @@ export default function PatientPage() {
 
   const [selectedParameter, setSelectedParameter] = useState('Blood Pressure');
   const [currentValue, setCurrentValue] = useState('');
+  const[transcribedText, setTranscribedText] = useState('');
   const [patientData, setPatientData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [parameterData, setParameterData] = useState([]);
@@ -95,7 +96,7 @@ export default function PatientPage() {
   // State for DatePickers visibility
   const [showLMPDatePicker, setShowLMPDatePicker] = useState(false);
   const [showDueDateDatePicker, setShowDueDateDatePicker] = useState(false);
-  const [transcribedText, setTranscribedText] = useState('');
+  //const [transcribedText, setTranscribedText] = useState('');
 
   const parameters = ['Blood Pressure', 'Hemoglobin', 'AFI', 'Weight', 'Glucose', 'Heart Rate'];
 
@@ -184,10 +185,19 @@ export default function PatientPage() {
   };
 
   const handleTranscriptionComplete = (text) => {
-    const newText = text.replace(/^Transcription:\n\n/, '');
-    setTranscribedText((prevText) => (prevText ? `${prevText}\n${newText}`.trim() : newText.trim()));
-  };
-
+    // Clean up the incoming text from the component
+    const newText = text.replace(/^Transcription:\n\n/, '').trim();
+    setTranscribedText(newText);
+    const newNote = {
+        content: newText, // The transcribed text
+        importantPoints: [] // You can add logic for this later
+    };
+    // Append the new transcription to the existing notes in formData
+    setFormData(prev => ({
+        ...prev,
+        notes: [...prev.notes, newNote] // Add the new note object to the array
+    }));
+ };
   // Save patient data to database
   const handleSubmit = async () => {
     if (!patientData) {
@@ -532,12 +542,13 @@ export default function PatientPage() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>DOCTOR's NOTES / PRESCRIPTION</Text>
         </View>
+
         {transcribedText ? (
-          <View style={styles.transcriptionCard}>
-            <Text style={styles.cardTitle}>Transcription</Text>
-            <TextInput style={styles.transcriptionInput} multiline value={transcribedText} onChangeText={setTranscribedText} />
-          </View>
-        ) : null}
+        <View style={styles.transcriptionCard}>
+          <Text style={styles.cardTitle}>Transcription</Text>
+          <TextInput style={styles.transcriptionInput} multiline value={transcribedText} onChangeText={setTranscribedText} />
+        </View>
+      ) : null}
 
         <NoteEditor onTranscriptionComplete={handleTranscriptionComplete} />
         
