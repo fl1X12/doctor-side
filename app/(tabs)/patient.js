@@ -21,6 +21,7 @@ import { Button } from 'react-native-paper';
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
+
 const API_BASE_URL = 'http://10.226.222.219:5000/api';
 
 // Create an Axios instance
@@ -531,13 +532,15 @@ export default function PatientPage() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>DOCTOR's NOTES / PRESCRIPTION</Text>
         </View>
-        <NoteEditor onTranscriptionComplete={handleTranscriptionComplete} />
         {transcribedText ? (
           <View style={styles.transcriptionCard}>
             <Text style={styles.cardTitle}>Transcription</Text>
             <TextInput style={styles.transcriptionInput} multiline value={transcribedText} onChangeText={setTranscribedText} />
           </View>
         ) : null}
+
+        <NoteEditor onTranscriptionComplete={handleTranscriptionComplete} />
+        
         <View style={styles.summarySection}>
           <Text style={styles.summaryTitle}>SUMMARY OF PREVIOUS DOCTOR NOTES</Text>
           <TextInput style={[styles.labeledInput, styles.multilineInput, { minHeight: 120 }]} placeholder="Summary of notes..." multiline value={formData.summary} onChangeText={(text) => setFormData(prev => ({ ...prev, summary: text }))} />
