@@ -6,10 +6,6 @@ from werkzeug.utils import secure_filename
 import logging
 import shutil # Import shutil for robust directory cleanup
 
-# --- Configuration ---
-# It's recommended to use environment variables for sensitive data like API keys.
-# Create a .env file in the same directory with the line:
-# SARVAM_API_KEY="sk_v9gt9f5b_2Z8eHuJerh98irjYd9Sp1BWv"
 from dotenv import load_dotenv
 load_dotenv()
 

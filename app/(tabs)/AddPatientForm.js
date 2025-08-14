@@ -46,18 +46,6 @@ export default function AddPatientForm({
        />
       </View>
 
-      {/* Patient Name Input */}
-      <View style={styles.inputContainer}>
-       <Text style={styles.inputLabel}>Patient Name *</Text>
-       <TextInput
-        style={styles.input}
-        placeholder="Enter Patient Name"
-        value={newPatient.patientName}
-        onChangeText={(text) => setNewPatient((prev) => ({ ...prev, patientName: text }))}
-        autoCapitalize="words"
-       />
-      </View>
-
       {/* Department Radio Buttons */}
       <View style={styles.inputContainer}>
        <Text style={styles.inputLabel}>Department *</Text>

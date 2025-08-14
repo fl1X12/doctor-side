@@ -78,7 +78,7 @@ export default function PatientOverviewScreen() {
         }
 
         // For development with Expo Go on a physical device, replace 'localhost' with your machine's IP address.
-        const response = await fetch(`http://10.226.222.219:5000/api/patients/${encodedIdentifier}`, {
+        const response = await fetch(`http://10.164.255.159:5501/api/patients/${encodedIdentifier}`, {
           headers: {
             'Authorization': `Bearer ${token}`, // Include the JWT in the Authorization header
             'Content-Type': 'application/json', // Ensure content type is set
