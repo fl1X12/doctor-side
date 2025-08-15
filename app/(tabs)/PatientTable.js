@@ -57,19 +57,21 @@ export default function PatientTable({
      <Text style={styles.tableCell}>{rowData.uhiNo}</Text>
      <Text style={styles.tableCell}>{rowData.patientName}</Text>
      <Text style={styles.tableCell}>{rowData.redirection || '-'}</Text>
-     {!isCompletedView && (
-      <View style={styles.actionButtonsContainer}>
-       <TouchableOpacity style={styles.completeButton} onPress={(e) => { e.stopPropagation(); onMarkComplete(rowData._id); }}>
-        <Text style={styles.completeButtonText}>Complete</Text>
-       </TouchableOpacity>
-       <TouchableOpacity style={styles.overviewButton} onPress={(e) => handleOverviewPress(e, rowData)}>
-        <Text style={styles.overviewButtonText}>Overview</Text>
-       </TouchableOpacity>
-       <TouchableOpacity style={styles.vitalButton} onPress={(e) => { e.stopPropagation(); onViewVitals(rowData); }}>
-        <Text style={styles.vitalButtonText}>Vital Info</Text>
-       </TouchableOpacity>
-      </View>
-     )}
+      {!isCompletedView && (
+         <View style={styles.tableCell}> 
+           <View style={styles.actionButtonsContainer}>
+             <TouchableOpacity style={styles.completeButton} onPress={(e) => { e.stopPropagation(); onMarkComplete(rowData._id); }}>
+               <Text style={styles.completeButtonText}>Complete</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.overviewButton} onPress={(e) => handleOverviewPress(e, rowData)}>
+               <Text style={styles.overviewButtonText}>Overview</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.vitalButton} onPress={(e) => { e.stopPropagation(); onViewVitals(rowData); }}>
+               <Text style={styles.vitalButtonText}>Vital Info</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+      )}
     </TouchableOpacity>
    ))}
   </View>

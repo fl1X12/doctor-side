@@ -237,42 +237,93 @@ export default function App() {
     };
 
     const markPatientCompleted = async (sessionId) => {
-        try {
-            await authAxios.put(`/patients/${sessionId}/complete`);
-            await fetchPatients();
-            if (showCompleted) {
-                await fetchCompletedPatients();
-            }
-            Alert.alert('Success', 'Patient marked as completed');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to mark patient as completed');
-            if (error.response?.status === 401 || error.response?.status === 403) {
-                handleLogout();
-            }
-        }
+        Alert.alert(
+            "Mark as Complete",
+            "Are you sure you want to mark this patient as completed?",
+            [
+                //cancel button
+                {
+                    text:'Cancel',
+                    onPress: () => console.log("Complete action cancelled "),
+                    style: 'cancel'
+                },
+                {
+                    text: 'Confirm',
+                    onPress: async () => {
+                        try {
+                            await authAxios.put(`/patients/${sessionId}/complete`);
+                            await fetchPatients();
+                            if (showCompleted) {
+                                await fetchCompletedPatients();
+                            }
+                            Alert.alert('Success', 'Patient marked as completed');
+                        }catch (error) {
+                            Alert.alert('Error', 'Failed to mark patient as completed');
+                            if (error.response?.status === 401 || error.response?.status === 403) {
+                                handleLogout();
+                            }
+                        }
+                    },
+                }
+            ],
+            { cancelable: false } // prevents dismiss by tapping outside the alert
+        );
+
+        
     };
     
+    // Updated handleSaveVitalInfo function for admin.js
+
     const handleSaveVitalInfo = async () => {
         // This will now use a session_id
         const sessionId = vitalInfo.patientId; // Assuming patientId is now sessionId
+        
+        // Validate required fields
         if (!vitalInfo.temperature || !vitalInfo.respiratoryRate ||
             !vitalInfo.oxygenSaturation || !vitalInfo.weight) {
             Alert.alert('Error', 'Please fill in all vital information fields');
             return;
         }
+
+        // Validate numeric fields
+        const numericFields = ['temperature', 'respiratoryRate', 'oxygenSaturation', 'weight'];
+        for (const field of numericFields) {
+            const value = parseFloat(vitalInfo[field]);
+            if (isNaN(value) || value <= 0) {
+                Alert.alert('Error', `Please enter a valid ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+                return;
+            }
+        }
+
         setIsLoading(true);
         try {
-            await authAxios.put(`/patients/${sessionId}/vitals`, vitalInfo);
+            // Prepare the data payload with correct field mapping
+            const vitalsData = {
+                visitDate: vitalInfo.visitDate,
+                temperature: parseFloat(vitalInfo.temperature),
+                respiratoryRate: parseInt(vitalInfo.respiratoryRate), // Convert to integer for respiratory rate
+                oxygenSaturation: parseFloat(vitalInfo.oxygenSaturation),
+                jaundice: vitalInfo.jaundice,
+                // Map 'feet' to 'feetSwelling' for backend compatibility
+                feetSwelling: vitalInfo.feet,
+                weight: parseFloat(vitalInfo.weight)
+            };
+
+            console.log('Sending vitals data:', vitalsData); // Debug log
+
+            await authAxios.put(`/patients/${sessionId}/vitals`, vitalsData);
+            
             Alert.alert('Success', 'Vital information saved successfully!', [
                 {
                     text: 'OK',
                     onPress: () => {
                         setCurrentPage('dashboard');
-                        fetchPatients();
+                        fetchPatients(); // Refresh the patient list
                     }
                 }
             ]);
         } catch (error) {
+            console.error('Error saving vitals:', error);
             const errorMessage = error.response?.data?.error || 'Failed to save vital information';
             Alert.alert('Error', errorMessage);
             if (error.response?.status === 401 || error.response?.status === 403) {

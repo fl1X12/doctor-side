@@ -20,8 +20,9 @@ import { Button } from 'react-native-paper';
 
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
+import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/forms/ReusableComponents';
 
-const API_BASE_URL = 'http://10.164.255.159:5501/api';
+const API_BASE_URL = 'http://192.168.1.6:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -59,121 +60,6 @@ authAxios.interceptors.response.use(
 
 // --- Reusable Input Components (Moved outside main component) ---
 
-const LabeledInput = ({
-  label,
-  section,
-  field,
-  formData,
-  setFormData,
-  placeholder = '',
-  keyboardType = 'default',
-  multiline = false,
-  numberOfLines = 1,
-}) => {
-  const value = formData?.[section]?.[field]?.toString() || '';
-  const handleChange = (text) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: { ...prev[section], [field]: text },
-    }));
-  };
-  return (
-    <View style={styles.labeledInputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={[styles.labeledInput, multiline && styles.multilineInput]}
-        placeholder={placeholder}
-        placeholderTextColor="#999"
-        value={value}
-        onChangeText={handleChange}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        textAlignVertical={multiline ? 'top' : 'center'}
-      />
-    </View>
-  );
-};
-
-const RadioButtonInput = ({ label, section, field, options, formData, setFormData }) => {
-  const selectedOption = formData?.[section]?.[field];
-  const handleSelect = (value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: { ...prev[section], [field]: value },
-    }));
-  };
-  return (
-    <View style={styles.labeledInputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={styles.radioGroup}>
-        {options.map((option) => (
-          <TouchableOpacity key={option.value} style={styles.radioOption} onPress={() => handleSelect(option.value)}>
-            <View style={styles.radioButton}>
-              {selectedOption === option.value && <View style={styles.radioButtonInner} />}
-            </View>
-            <Text style={styles.radioText}>{option.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-const DropdownInput = ({ label, section, field, options, placeholder, formData, setFormData }) => {
-  const selectedValue = formData?.[section]?.[field];
-  const [isPickerVisible, setPickerVisible] = useState(false);
-  const handleValueChange = (itemValue) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: { ...prev[section], [field]: itemValue },
-    }));
-    setPickerVisible(false);
-  };
-
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.labeledInputContainer}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <select
-          style={styles.webSelect}
-          value={selectedValue || ''}
-          onChange={(e) => handleValueChange(e.target.value)}>
-          <option value="" disabled>
-            {placeholder}
-          </option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.labeledInputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TouchableOpacity style={styles.dropdownButton} onPress={() => setPickerVisible(!isPickerVisible)}>
-        <Text style={styles.dropdownButtonText}>{selectedValue || placeholder}</Text>
-        <Text style={styles.dropdownArrow}>▼</Text>
-      </TouchableOpacity>
-      {isPickerVisible && (
-        <View style={styles.dropdownOptionsContainer}>
-          {options.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={styles.dropdownOption}
-              onPress={() => handleValueChange(option.value)}>
-              <Text style={styles.dropdownOptionText}>{option.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
 
 
 // --- Main Page Component ---
@@ -368,12 +254,38 @@ export default function PatientPage() {
     try {
       let value;
       let unit = '';
-      // ... (The switch case logic for parsing the value remains the same)
-
-      // [Your existing switch case for parsing 'value' and 'unit' goes here]
-
-      // --- after the switch case ---
-
+    
+      switch (selectedParameter) {
+        case 'Blood Pressure':
+          const bpParts = currentValue.split('/');
+          if (bpParts.length !== 2) throw new Error('Invalid blood pressure format. Use "120/80"');
+          const systolic = parseInt(bpParts[0], 10);
+          const diastolic = parseInt(bpParts[1], 10);
+          if (isNaN(systolic) || isNaN(diastolic)) throw new Error('Invalid blood pressure values');
+          value = { systolic, diastolic };
+          unit = 'mmHg';
+          break;
+        case 'Hemoglobin':
+        case 'AFI':
+        case 'Weight':
+        case 'Glucose':
+          value = parseFloat(currentValue);
+          if (isNaN(value)) throw new Error('Please enter a valid number');
+          if (selectedParameter === 'Hemoglobin') unit = 'g/dL';
+          if (selectedParameter === 'AFI') unit = 'cm';
+          if (selectedParameter === 'Weight') unit = 'kg';
+          if (selectedParameter === 'Glucose') unit = 'mg/dL';
+          break;
+        case 'Heart Rate':
+          value = parseInt(currentValue, 10);
+          if (isNaN(value)) throw new Error('Please enter a valid number');
+          unit = 'bpm';
+          break;
+        default:
+          value = parseFloat(currentValue);
+          if (isNaN(value)) throw new Error('Please enter a valid number');
+      }
+      
       // CHANGED: Use the session ID for the POST request
       await authAxios.post(`/patients/${patientData.session.id}/parameters`, {
         parameterType: selectedParameter,

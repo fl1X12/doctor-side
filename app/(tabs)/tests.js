@@ -15,7 +15,7 @@ import {
 import { Button } from 'react-native-paper';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.164.255.159:5501/api';
+const API_BASE_URL = 'http://192.168.1.6:5501/api';
 
 export default function TestsPage() {
   const params = useLocalSearchParams();
