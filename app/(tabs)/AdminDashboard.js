@@ -16,20 +16,33 @@ import PatientTable from './PatientTable'; // Import child component
 import StatsPanel from './StatsPanel'; // Import child component
 
 export default function AdminDashboard({
- doctorName,
- handleLogout,
- appointmentData,
- completedPatients,
- showCompleted,
- toggleCompletedView,
- handleAddPatient,
- handleWebExcelUpload,
- markPatientCompleted,
- setVitalInfo,
- setCurrentPage,
+  doctorName,
+  handleLogout,
+  appointmentData,
+  completedPatients,
+  showCompleted,
+  toggleCompletedView,
+  handleAddPatient,
+  handleWebExcelUpload,
+  markPatientCompleted,
+  setVitalInfo,
+  setCurrentPage,
+  doctorId, // ensure this prop exists
 }) {
- const router = useRouter();
- const [selectedDepartment, setSelectedDepartment] = useState('obstetrics');
+  const router = useRouter();
+  const [selectedDepartment, setSelectedDepartment] = useState('obstetrics');
+
+  const handleRowPress = (rowData) => {
+    const pathname = showCompleted ? '/patient-report' : '/patient';
+    router.push({
+      pathname,
+      params: {
+        uhiNo: rowData.uhiNo,
+        name: rowData.patientName,
+        doctorId: doctorId, // pass doctorId to patient.js
+      },
+    });
+  };
 
  return (
   <ScrollView style={styles.container}>
@@ -107,6 +120,7 @@ export default function AdminDashboard({
       patients={showCompleted ? completedPatients : appointmentData}
       isCompletedView={showCompleted}
       router={router}
+      doctorId={doctorId}
       onMarkComplete={markPatientCompleted}
       onViewVitals={(patient) => {
        setVitalInfo({
@@ -123,6 +137,7 @@ export default function AdminDashboard({
        });
        setCurrentPage('vitalInfo');
       }}
+      onRowPress={handleRowPress}
      />
     </View>
 
