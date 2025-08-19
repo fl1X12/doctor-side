@@ -26,7 +26,7 @@ export async function recordAndRecognizeSpeech(language = "en") {
   formData.append('language', language); // Pass language to backend
 
   // Send to backend
-  const response = await axios.post('http://192.168.1.6:5050/voice-to-text', formData, {
+  const response = await axios.post('http://10.164.255.159:5050/voice-to-text', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
   return response.data.text;

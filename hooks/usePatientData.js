@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
-const API_BASE_URL = 'http://192.168.1.6:5501/api';
+const API_BASE_URL = 'http://10.164.255.159:5501/api';
 
 // Create one instance to be used across the app
 export const authAxios = axios.create({
