@@ -18,7 +18,7 @@ const useVoiceRecorder = ({ onResult }) => {
   // --- IMPORTANT ---
   // Replace this with your computer's Local IP Address.
   // Your phone and computer must be on the same Wi-Fi network.
-  const YOUR_BACKEND_URL = 'http://192.168.1.6:5001/transcribe';
+  const YOUR_BACKEND_URL = 'http://10.226.222.219:5001/transcribe';
 
   const startRecording = async () => {
     try {

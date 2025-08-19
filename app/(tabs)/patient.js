@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,11 +18,11 @@ import {
 import { LineChart } from 'react-native-chart-kit';
 import { Button } from 'react-native-paper';
 
+import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/forms/ReusableComponents';
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
-import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/forms/ReusableComponents';
 
-const API_BASE_URL = 'http://192.168.1.6:5501/api';
+const API_BASE_URL = 'http://10.226.222.219:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -58,10 +58,6 @@ authAxios.interceptors.response.use(
   }
 );
 
-// --- Reusable Input Components (Moved outside main component) ---
-
-
-
 // --- Main Page Component ---
 export default function PatientPage() {
   const { name, uhiNo } = useLocalSearchParams();
@@ -80,13 +76,15 @@ export default function PatientPage() {
   const [patientData, setPatientData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [parameterData, setParameterData] = useState([]);
+  const [drawingNote, setDrawingNote] = useState({ drawings: [], highlights: [] });
+  const noteEditorRef = useRef(null);
   const [formData, setFormData] = useState({
     details: {},
     analysis: {},
     maternalHealth: {},
     previousBaby: {},
     familyHistory: {},
-    notes: '',
+    notes: [], // ✅ CRITICAL FIX: Initialized as an array
     summary: '',
   });
 
@@ -125,30 +123,45 @@ export default function PatientPage() {
     }
   };
 
-  // In PatientPage component
+  const fetchAndSetSummary = async (sessionId) => {
+    try {
+      const notesResponse = await authAxios.get(`/patients/${sessionId}/notes`);
+      if (notesResponse.data && Array.isArray(notesResponse.data) && notesResponse.data.length > 0) {
+        const mostRecentNote = notesResponse.data[notesResponse.data.length - 1];
+        if (mostRecentNote.important_points && Array.isArray(mostRecentNote.important_points)) {
+          const summaryText = mostRecentNote.important_points.join('\n');
+          setFormData((prev) => ({ ...prev, summary: summaryText }));
+        }
+      }
+    } catch (error) {
+      console.error('Could not fetch previous summary notes:', error);
+    }
+  };
 
+  // ✅ REFACTORED: All initial data fetching is now consolidated here.
   useEffect(() => {
-    const fetchPatientData = async () => {
-      if (!uhiNo) return; // Don't fetch if uhiNo isn't available
+    const fetchInitialData = async () => {
+      if (!uhiNo) return;
       setLoading(true);
       try {
-        // CHANGED: Fetch using the uhiNo via the correct 'by' endpoint
         const response = await authAxios.get(`/patients/by/${uhiNo}`);
         const data = response.data;
-
-        // CHANGED: Set the entire response to patientData state
         setPatientData(data);
 
-        // CHANGED: Populate formData from the new nested structure
         setFormData({
           details: data.user || {},
-          analysis: data.analysis || {}, // Assuming these details are returned
+          analysis: data.analysis || {},
           maternalHealth: data.maternalHealth || {},
           previousBaby: data.previousBaby || {},
           familyHistory: data.familyHistory || {},
-          notes: data.notes || '',
-          summary: data.summary || '',
+          notes: [],
+          summary: '',
         });
+
+        // Fetch summary immediately after getting the session ID
+        if (data.session?.id) {
+          await fetchAndSetSummary(data.session.id);
+        }
       } catch (error) {
         if (!error.response || (error.response.status !== 401 && error.response.status !== 403)) {
           console.error('Error fetching patient data:', error);
@@ -158,20 +171,19 @@ export default function PatientPage() {
         setLoading(false);
       }
     };
-    fetchPatientData();
-  }, [uhiNo]); // CHANGED: Dependency is now uhiNo
+    fetchInitialData();
+  }, [uhiNo]);
 
+  // ✅ REFACTORED: This hook now correctly focuses only on parameter data.
   useEffect(() => {
-    if (patientData) {
+    if (patientData?.session?.id) {
       fetchParameterData();
     }
   }, [selectedParameter, patientData]);
 
   const fetchParameterData = async () => {
-    // IMPORTANT: Ensure patientData and its session property exist
     if (!patientData?.session?.id) return;
     try {
-      // CHANGED: Use the session ID for the API call
       const response = await authAxios.get(`/patients/${patientData.session.id}/parameters/${selectedParameter}`);
       setParameterData(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
@@ -185,36 +197,46 @@ export default function PatientPage() {
   const handleTranscriptionComplete = (text) => {
     const newText = text.replace(/^Transcription:\n\n/, '').trim();
     setTranscribedText(newText);
-    const newNote = {
-      content: newText,
-      importantPoints: [],
-    };
-    setFormData((prev) => ({
-      ...prev,
-      notes: [...prev.notes, newNote],
-    }));
   };
-
+  
+  // ✅ REFACTORED: Simplified to only call savePatientData.
   const handleSubmit = async () => {
-    if (!patientData) {
-      await fetchPatient();
-    } else {
-      await savePatientData();
-    }
-  };
-
-  const savePatientData = async () => {
-    // IMPORTANT: Ensure patientData and its session property exist
+  // 1. Guard Clause: Make sure we have a session to save to.
     if (!patientData?.session?.id) {
       return Alert.alert('Error', 'Cannot save data. Patient session not found.');
     }
-    try {
-      // CHANGED: Use the session ID for the PUT request
-      const response = await authAxios.put(`/patients/${patientData.session.id}`, formData);
 
-      // The backend might return the updated session, you can update state if needed
-      //setPatientData(prev => ({ ...prev, ...response.data }));
+    // 2. Prepare the Payload: Combine all data sources into one object.
+    // I'm assuming 'drawingNote' is the state holding your drawing data.
+    const payload = {
+      ...formData,
+      drawingNote:drawingNote, 
+    };
+
+    // Add the new transcribed note if it exists.
+    if (transcribedText.trim()) {
+      payload.notes = [{ content: transcribedText.trim() }];
+    } else {
+      // Ensure we don't send any stale notes from the initial formData state.
+      payload.notes = [];
+    }
+
+    // 3. Save the Data (Single API Call)
+    try {
+      await authAxios.put(`/patients/${patientData.session.id}`, payload);
       Alert.alert('Success', 'Patient data saved successfully');
+      
+      // 4. Cleanup and Refresh the UI
+      await fetchAndSetSummary(patientData.session.id);
+      setTranscribedText(''); // Clear the note editor
+      
+      if (noteEditorRef.current) {
+        noteEditorRef.current.clear();
+      }
+      
+      setFormData(prev => ({ ...prev, notes: [] })); // Clear any stale notes in formData
+      // You should also clear your drawing state here, e.g., setDrawingNote({ drawings: [], highlights: [] });
+
     } catch (error) {
       if (!error.response || (error.response.status !== 401 && error.response.status !== 403)) {
         console.error('Error saving patient data:', error);
@@ -222,33 +244,9 @@ export default function PatientPage() {
       }
     }
   };
-
-  const fetchPatient = async () => {
-  try {
-    // CHANGED: Use a GET request to the correct endpoint.
-    // The uhiNo is now part of the URL, not the request body.
-    const response = await authAxios.get(`/patients/by/${uhiNo}`);
-
-    // This remains the same, as you want to update your state with the fetched data.
-    setPatientData(response.data);
-
-    // REMOVED: An alert on success is usually not needed when the UI updates with data.
-    // If you want feedback, you could use a brief, non-blocking toast message.
-
-  } catch (error) {
-    // This is a standard check for network errors vs. HTTP errors.
-    if (!error.response || (error.response.status !== 401 && error.response.status !== 403)) {
-      console.error('Error fetching patient:', error);
-
-      // CHANGED: The error message is updated to reflect the new action.
-      Alert.alert('Error', error.response?.data?.error || 'Failed to fetch patient details');
-    }
-  }
-};
-
+  
   const addParameterMeasurement = async () => {
     if (!currentValue.trim()) return Alert.alert('Error', 'Please enter a value');
-    // IMPORTANT: Ensure patientData and its session property exist
     if (!patientData?.session?.id) return Alert.alert('Error', 'Cannot add measurement. Patient session not found.');
 
     try {
@@ -286,7 +284,6 @@ export default function PatientPage() {
           if (isNaN(value)) throw new Error('Please enter a valid number');
       }
       
-      // CHANGED: Use the session ID for the POST request
       await authAxios.post(`/patients/${patientData.session.id}/parameters`, {
         parameterType: selectedParameter,
         value,
@@ -429,7 +426,7 @@ export default function PatientPage() {
               <DropdownInput
                 label="Blood Group:"
                 section="details"
-                field="bloodGroup"
+                field="bg"
                 placeholder="Select Blood Group"
                 options={[
                   { label: 'A+', value: 'A+' }, { label: 'A-', value: 'A-' },
@@ -638,21 +635,31 @@ export default function PatientPage() {
 
         {transcribedText ? (
           <View style={styles.transcriptionCard}>
-            <Text style={styles.cardTitle}>Transcription</Text>
-            <TextInput style={styles.transcriptionInput} multiline value={transcribedText} onChangeText={setTranscribedText} />
+            <Text style={styles.cardTitle}>Last Note Added</Text>
+            <TextInput
+              style={styles.transcriptionInput}
+              multiline
+              value={transcribedText}
+              editable={true}
+              onChangeText={setTranscribedText}
+            />
           </View>
         ) : null}
 
-        <NoteEditor onTranscriptionComplete={handleTranscriptionComplete} />
+        <NoteEditor 
+          ref={noteEditorRef}
+          onTranscriptionComplete={handleTranscriptionComplete} 
+          onDrawingsChange={setDrawingNote}
+        />
 
         <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>SUMMARY OF PREVIOUS DOCTOR NOTES</Text>
+          <Text style={styles.summaryTitle}>AI SUMMARY OF LATEST NOTES</Text>
           <TextInput
-            style={[styles.labeledInput, styles.multilineInput, { minHeight: 120 }]}
-            placeholder="Summary of notes..."
+            style={[styles.labeledInput, styles.multilineInput, { minHeight: 120, color: '#333' }]}
+            placeholder="No summary available. Add new notes to generate a summary."
             multiline
             value={formData.summary}
-            onChangeText={(text) => setFormData((prev) => ({ ...prev, summary: text }))}
+            editable={false} // Summary is read-only
           />
         </View>
 
@@ -744,7 +751,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.softPink, padding: 12, marginTop: 10 },
   transcriptionCard: { backgroundColor: '#fff', padding: 10, borderRadius: 8, marginVertical: 10 },
   cardTitle: { fontWeight: 'bold', marginBottom: 5 },
-  transcriptionInput: { height: 100, textAlignVertical: 'top' },
+  transcriptionInput: { height: 100, textAlignVertical: 'top', color: '#333' },
   summarySection: { backgroundColor: '#fff', borderRadius: 8, marginTop: 10 },
   summaryTitle: { fontSize: 14, fontWeight: 'bold', backgroundColor: colors.softPink, padding: 12 },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 20, paddingBottom: 20 },

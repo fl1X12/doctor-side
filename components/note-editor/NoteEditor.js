@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { PanResponder, StyleSheet, View } from 'react-native';
 import { useNoteState } from '../../hooks/useNoteState';
 import useVoiceRecorder from '../../hooks/useVoiceRecorder';
@@ -6,25 +6,19 @@ import DrawingCanvas from './DrawingCanvas';
 import Toolbar from './Toolbar';
 // import SettingsModal from './SettingsModal';
 
-//==============================================================================
-// --- Main Note Editor Container Component ---
-// File Path: src/components/note-editor/NoteEditor.js
-//
-// This version implements the full logic for the eraser tool.
-//==============================================================================
-export default function NoteEditor({ onTranscriptionComplete }) {
-  // --- FIX 1: Import the 'removeElementsByIds' function ---
+const NoteEditor = forwardRef(function NoteEditor({ onTranscriptionComplete, onDrawingsChange }, ref) {
   const {
     drawings,
     highlights,
     textBoxes,
     addElement,
     updateTextBoxPosition,
-    removeElementsByIds, // Now imported
+    removeElementsByIds,
     undo,
     redo,
     canUndo,
     canRedo,
+    clearState,
   } = useNoteState();
 
   const [activeMode, setActiveMode] = useState('draw');
@@ -32,6 +26,18 @@ export default function NoteEditor({ onTranscriptionComplete }) {
   const [showSettings, setShowSettings] = useState(false);
   const [currentPath, setCurrentPath] = useState(null);
   const [settings, setSettings] = useState({ color: '#000000', size: 4, highlightColor: '#FFFF00', eraserSize: 20 });
+
+  useImperativeHandle(ref, () => ({
+    clear() {
+      clearState();
+    },
+  }));
+
+  useEffect(() => {
+    if (onDrawingsChange) {
+      onDrawingsChange({ drawings, highlights });
+    }
+  }, [drawings, highlights, onDrawingsChange]);
 
   const handleTranscriptionResult = (text) => {
     console.log("Transcription Result:", text);
@@ -44,7 +50,6 @@ export default function NoteEditor({ onTranscriptionComplete }) {
     onResult: handleTranscriptionResult,
   });
 
-  // --- FIX 2: Implement the full PanResponder logic for erasing ---
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => activeMode === 'draw' || activeMode === 'highlight' || isErasing,
 
@@ -52,12 +57,10 @@ export default function NoteEditor({ onTranscriptionComplete }) {
       const { locationX, locationY } = evt.nativeEvent;
 
       if (isErasing) {
-        // When erasing starts, check for initial collision immediately
         handleErase(locationX, locationY);
         return;
       }
 
-      // Drawing/Highlighting logic (unchanged)
       setCurrentPath({
         id: Date.now().toString(),
         points: [{ x: locationX, y: locationY }],
@@ -71,33 +74,27 @@ export default function NoteEditor({ onTranscriptionComplete }) {
       const { locationX, locationY } = evt.nativeEvent;
 
       if (isErasing) {
-        // Continuously check for collisions as the eraser moves
         handleErase(locationX, locationY);
         return;
       }
 
-      // Drawing/Highlighting logic (unchanged)
       if (currentPath) {
         setCurrentPath(prev => ({ ...prev, points: [...prev.points, { x: locationX, y: locationY }] }));
       }
     },
 
     onPanResponderRelease: () => {
-      // Finalize the drawing/highlighting action
       if (!isErasing && currentPath && currentPath.points.length > 1) {
         addElement(activeMode === 'highlight' ? 'highlight' : 'drawing', currentPath);
       }
-      // Reset the current path for both drawing and erasing
       setCurrentPath(null);
     },
   });
 
-  // --- FIX 3: Create the collision detection and erasing handler ---
   const handleErase = (x, y) => {
     const idsToErase = new Set();
     const eraserRadius = settings.eraserSize / 2;
 
-    // Check for collisions with drawings
     drawings.forEach(path => {
       path.points.forEach(point => {
         const distance = Math.sqrt(Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2));
@@ -107,7 +104,6 @@ export default function NoteEditor({ onTranscriptionComplete }) {
       });
     });
 
-    // Check for collisions with highlights
     highlights.forEach(path => {
       path.points.forEach(point => {
         const distance = Math.sqrt(Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2));
@@ -117,7 +113,6 @@ export default function NoteEditor({ onTranscriptionComplete }) {
       });
     });
 
-    // If any paths were hit, call the remove function from the hook
     if (idsToErase.size > 0) {
       removeElementsByIds(Array.from(idsToErase));
     }
@@ -143,15 +138,15 @@ export default function NoteEditor({ onTranscriptionComplete }) {
         <DrawingCanvas
           drawings={drawings}
           highlights={highlights}
-          // textBoxes={textBoxes}  // Assuming no text boxes on this canvas for now
           currentPath={currentPath}
-          // onUpdateTextBoxPosition={updateTextBoxPosition}
         />
       </View>
       {/* <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} settings={settings} setSettings={setSettings} /> */}
     </View>
   );
-}
+});
+
+export default NoteEditor;
 
 const styles = StyleSheet.create({
   editorContainer: { height: 350, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
