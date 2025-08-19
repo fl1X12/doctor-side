@@ -22,7 +22,7 @@ import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.226.222.219:5501/api';
+const API_BASE_URL = 'http://10.164.255.159:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -60,7 +60,7 @@ authAxios.interceptors.response.use(
 
 // --- Main Page Component ---
 export default function PatientPage() {
-  const { name, uhiNo } = useLocalSearchParams();
+  const { name, uhiNo, doctorId } = useLocalSearchParams();
   const router = useRouter();
 
   useEffect(() => {
@@ -666,6 +666,22 @@ export default function PatientPage() {
         <View style={styles.actionButtons}>
           <Button mode="contained" style={styles.saveButton} onPress={handleSubmit}>
             Save Patient Data
+          </Button>
+          <Button
+            mode="contained"
+            style={[styles.navigateButton, { backgroundColor: "#0256A3" }]}
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)/PrescriptionScreen",
+                params: {
+                  uhiNo,
+                  name,
+                  doctorId: patientData?.session?.doctor_id // <-- Use doctor_id from patientData.session
+                }
+              })
+            }
+          >
+            Prescription
           </Button>
           <Button
             mode="contained"

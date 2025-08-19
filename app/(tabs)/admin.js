@@ -18,6 +18,7 @@ export default function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState('dashboard');
     const [doctorName, setDoctorName] = useState('');
+    const [doctorId, setDoctorId] = useState(null);
 
     // Auth state
     const [username, setUsername] = useState('');
@@ -67,6 +68,7 @@ export default function App() {
                 if (storedToken && storedDoctor) {
                     const doctorInfo = JSON.parse(storedDoctor);
                     setDoctorName(doctorInfo.name);
+                    setDoctorId(doctorInfo.id || doctorInfo._id || null);
                     setIsLoggedIn(true);
                     fetchPatients(); // Fetch initial data
                 }
@@ -139,6 +141,7 @@ export default function App() {
             await AsyncStorage.setItem('token', token);
             await AsyncStorage.setItem('doctorInfo', JSON.stringify(doctor));
             setDoctorName(doctor.name);
+            setDoctorId(doctor.id || doctor._id || null);
             setIsLoggedIn(true);
             Alert.alert('Success', `Welcome ${doctor.name}!`);
             fetchPatients();
@@ -188,6 +191,7 @@ export default function App() {
             setUsername('');
             setPassword('');
             setDoctorName('');
+            setDoctorId(null);
             setCurrentPage('dashboard');
             setAppointmentData([]);
             setCompletedPatients([]);
@@ -419,6 +423,7 @@ export default function App() {
                     markPatientCompleted={markPatientCompleted}
                     setVitalInfo={setVitalInfo}
                     setCurrentPage={setCurrentPage}
+                    doctorId={doctorId}
                 />
             );
     }
