@@ -18,6 +18,7 @@ import {
 import { LineChart } from 'react-native-chart-kit';
 import { Button } from 'react-native-paper';
 
+// Make sure these imports are present
 import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/forms/ReusableComponents';
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
@@ -58,6 +59,64 @@ authAxios.interceptors.response.use(
   }
 );
 
+
+function PatientHistoryView({ userId, onHistoryItemClick }) { 
+  const [historyData, setHistoryData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!userId) return;
+      try {
+        setIsLoading(true);
+        const response = await authAxios.get(`/patients/${userId}/drawing-history`);
+        setHistoryData(response.data);
+      } catch (err) {
+        console.error("Failed to fetch drawing history:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [userId]);
+
+  if (isLoading) {
+    return (
+      <View style={{ padding: 20, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color={colors.darkBlue} />
+      </View>
+    );
+  }
+
+  if (historyData.length === 0) {
+    return <Text style={{ padding: 20, color: '#888', textAlign: 'center' }}>No previous drawings found.</Text>;
+  }
+
+  return (
+    <View style={styles.historyContainer}>
+      <Text style={styles.historyTitle}>Drawing History</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyList}>
+        {historyData.map((item) => (
+          <TouchableOpacity 
+            key={item.id} 
+            style={styles.historyItem} 
+            onPress={() => onHistoryItemClick(item.drawingNote)} 
+          >
+            <Text style={styles.historyItemType}>{item.type}</Text>
+            <Text style={styles.historyItemDate}>
+              {new Date(item.recordedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+            </Text>
+            <Text style={styles.historyItemTime}>
+              {new Date(item.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+
 // --- Main Page Component ---
 export default function PatientPage() {
   const { name, uhiNo, doctorId } = useLocalSearchParams();
@@ -84,7 +143,7 @@ export default function PatientPage() {
     maternalHealth: {},
     previousBaby: {},
     familyHistory: {},
-    notes: [], // ✅ CRITICAL FIX: Initialized as an array
+    notes: [],
     summary: '',
   });
 
@@ -138,7 +197,6 @@ export default function PatientPage() {
     }
   };
 
-  // ✅ REFACTORED: All initial data fetching is now consolidated here.
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!uhiNo) return;
@@ -158,7 +216,6 @@ export default function PatientPage() {
           summary: '',
         });
 
-        // Fetch summary immediately after getting the session ID
         if (data.session?.id) {
           await fetchAndSetSummary(data.session.id);
         }
@@ -174,7 +231,6 @@ export default function PatientPage() {
     fetchInitialData();
   }, [uhiNo]);
 
-  // ✅ REFACTORED: This hook now correctly focuses only on parameter data.
   useEffect(() => {
     if (patientData?.session?.id) {
       fetchParameterData();
@@ -199,43 +255,34 @@ export default function PatientPage() {
     setTranscribedText(newText);
   };
   
-  // ✅ REFACTORED: Simplified to only call savePatientData.
   const handleSubmit = async () => {
-  // 1. Guard Clause: Make sure we have a session to save to.
     if (!patientData?.session?.id) {
       return Alert.alert('Error', 'Cannot save data. Patient session not found.');
     }
 
-    // 2. Prepare the Payload: Combine all data sources into one object.
-    // I'm assuming 'drawingNote' is the state holding your drawing data.
     const payload = {
       ...formData,
       drawingNote:drawingNote, 
     };
 
-    // Add the new transcribed note if it exists.
     if (transcribedText.trim()) {
       payload.notes = [{ content: transcribedText.trim() }];
     } else {
-      // Ensure we don't send any stale notes from the initial formData state.
       payload.notes = [];
     }
 
-    // 3. Save the Data (Single API Call)
     try {
       await authAxios.put(`/patients/${patientData.session.id}`, payload);
       Alert.alert('Success', 'Patient data saved successfully');
       
-      // 4. Cleanup and Refresh the UI
       await fetchAndSetSummary(patientData.session.id);
-      setTranscribedText(''); // Clear the note editor
+      setTranscribedText('');
       
       if (noteEditorRef.current) {
         noteEditorRef.current.clear();
       }
       
-      setFormData(prev => ({ ...prev, notes: [] })); // Clear any stale notes in formData
-      // You should also clear your drawing state here, e.g., setDrawingNote({ drawings: [], highlights: [] });
+      setFormData(prev => ({ ...prev, notes: [] }));
 
     } catch (error) {
       if (!error.response || (error.response.status !== 401 && error.response.status !== 403)) {
@@ -370,6 +417,22 @@ export default function PatientPage() {
     );
   };
 
+  const handleHistoryItemClick = (drawingNote) => {
+    if (noteEditorRef.current && drawingNote) {
+      Alert.alert(
+        "Load Previous Drawing?",
+        "This will replace any content in the editor. Do you want to continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Load", 
+            onPress: () => noteEditorRef.current.loadDrawing(drawingNote) 
+          },
+        ]
+      );
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -394,6 +457,7 @@ export default function PatientPage() {
       </View>
 
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
+        {/* ✅ FORMS RESTORED BELOW ✅ */}
         <View style={[styles.topRow, isTablet && styles.tabletTopRow]}>
           <View style={styles.topBox}>
             <Text style={styles.sectionTitle}>Patient Details</Text>
@@ -628,6 +692,15 @@ export default function PatientPage() {
           </View>
           <View style={styles.chartContainer}>{renderChart()}</View>
         </View>
+        
+        <View style={styles.historySection}>
+            {patientData?.user?.id && (
+              <PatientHistoryView 
+                userId={patientData.user.id} 
+                onHistoryItemClick={handleHistoryItemClick} 
+              />
+            )}
+        </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>DOCTOR's NOTES / PRESCRIPTION</Text>
@@ -659,7 +732,7 @@ export default function PatientPage() {
             placeholder="No summary available. Add new notes to generate a summary."
             multiline
             value={formData.summary}
-            editable={false} // Summary is read-only
+            editable={false}
           />
         </View>
 
@@ -728,18 +801,6 @@ const styles = StyleSheet.create({
   labeledInput: { flex: 1, borderWidth: 1, borderColor: colors.border || '#e0e0e0', borderRadius: 4, padding: 8, backgroundColor: '#ffffff', fontSize: 12, height: 36, justifyContent: 'center' },
   multilineInput: { height: 'auto', minHeight: 80, textAlignVertical: 'top' },
   staticText: { fontSize: 12, paddingVertical: 8, flex: 1 },
-  radioGroup: { flexDirection: 'row', flexWrap: 'wrap', flex: 1, gap: 15 },
-  radioOption: { flexDirection: 'row', alignItems: 'center' },
-  radioButton: { height: 18, width: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#007AFF', alignItems: 'center', justifyContent: 'center', marginRight: 5 },
-  radioButtonInner: { height: 10, width: 10, borderRadius: 5, backgroundColor: '#007AFF' },
-  radioText: { fontSize: 12 },
-  dropdownButton: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border || '#e0e0e0', borderRadius: 4, padding: 8, backgroundColor: '#ffffff', height: 36 },
-  dropdownButtonText: { fontSize: 12 },
-  dropdownArrow: { fontSize: 10 },
-  dropdownOptionsContainer: { position: 'absolute', top: '100%', left: 98, right: 0, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ccc', borderRadius: 4, zIndex: 10, maxHeight: 150 },
-  dropdownOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  dropdownOptionText: { fontSize: 12 },
-  webSelect: { flex: 1, height: 36, borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 4, paddingHorizontal: 8, backgroundColor: '#fff' },
   trendsSection: { backgroundColor: colors.white || '#ffffff', borderRadius: 8, padding: 16, marginBottom: 20, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
   trendsSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 16 },
   parameterTabs: { marginBottom: 16 },
@@ -773,4 +834,56 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 20, paddingBottom: 20 },
   saveButton: { backgroundColor: colors.darkBlue },
   navigateButton: { backgroundColor: '#6c757d' },
+  
+  historySection: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginTop: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    overflow: 'hidden',
+  },
+  historyContainer: {
+    // container styles
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  historyList: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  historyItem: {
+    backgroundColor: '#f8f4f6',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.softPink,
+    padding: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  historyItemType: {
+    fontWeight: 'bold',
+    color: colors.darkBlue,
+    fontSize: 13,
+  },
+  historyItemDate: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 6,
+  },
+  historyItemTime: {
+    fontSize: 11,
+    color: '#777',
+    marginTop: 2,
+  },
 });

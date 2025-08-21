@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 //==============================================================================
 // --- Custom Hook for Note State ---
-// This refactored version uses a single source of truth for state management
-// and includes the missing `clearState` function.
+// This version includes the 'loadState' function to replace the canvas 
+// content with historical data.
 //==============================================================================
 export const useNoteState = () => {
   // The initial state of a single note entry
@@ -26,24 +26,36 @@ export const useNoteState = () => {
   };
 
   const addElement = (type, element) => {
-    let newDrawings = currentState.drawings;
-    let newHighlights = currentState.highlights;
-    let newTextBoxes = currentState.textBoxes;
+    // Creates a mutable copy of the current state arrays
+    const newState = {
+      drawings: [...currentState.drawings],
+      highlights: [...currentState.highlights],
+      textBoxes: [...currentState.textBoxes],
+    };
 
     if (type === 'drawing') {
-      newDrawings = [...currentState.drawings, element];
+      newState.drawings.push(element);
     } else if (type === 'highlight') {
-      newHighlights = [...currentState.highlights, element];
+      newState.highlights.push(element);
     } else if (type === 'textBox') {
-      newTextBoxes = [...currentState.textBoxes, element];
+      newState.textBoxes.push(element);
     }
 
-    recordNewState({
-      drawings: newDrawings,
-      highlights: newHighlights,
-      textBoxes: newTextBoxes,
-    });
+    recordNewState(newState);
   };
+  
+  // ✅ ADDED: The loadState function to overwrite the history
+  const loadState = useCallback((newState) => {
+    const loadedData = {
+      drawings: newState.drawings || [],
+      highlights: newState.highlights || [],
+      textBoxes: newState.textBoxes || [],
+    };
+    // Reset the history with the loaded data as the new starting point.
+    // This correctly discards the old undo/redo history.
+    setHistory([loadedData]);
+    setCurrentIndex(0);
+  }, []);
   
   const removeElementsByIds = (idsToRemove) => {
     const idSet = new Set(idsToRemove);
@@ -71,13 +83,11 @@ export const useNoteState = () => {
     // This function would also be modified to update the history state if needed
   };
 
-  // ✅ ADDED: The missing clearState function
   const clearState = () => {
     setHistory([initialState]);
     setCurrentIndex(0);
   };
 
-  // ✅ MODIFIED: The return object now includes clearState and the derived state
   return { 
     ...currentState, // Directly returns drawings, highlights, textBoxes
     addElement,
@@ -88,5 +98,6 @@ export const useNoteState = () => {
     canUndo, 
     canRedo,
     clearState,
+    loadState, // ✅ EXPORTED: Make the function available to your components
   };
 };
