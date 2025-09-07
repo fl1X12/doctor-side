@@ -30,6 +30,11 @@ except Exception as e:
     logging.error(f"Failed to initialize Sarvam AI client: {e}")
     client = None
 
+@app.route('/test',methods=['GET'])
+def test():
+    return "hit registered"
+
+
 # --- API Endpoint ---
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():

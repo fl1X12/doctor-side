@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import Constants from "expo-constants";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { authAxios, API_BASE_URL } from "../../lib/utils";
 import { Picker } from "@react-native-picker/picker";
+import Constants from "expo-constants";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { authAxios } from "../../lib/utils";
 
 const AddMedicinePage = () => {
   const { uhiNo: uhiNoParam, doctorId: doctorIdParam } = useLocalSearchParams();
@@ -16,7 +16,7 @@ const AddMedicinePage = () => {
   const [timeSlot, setTimeSlot] = useState("Morning");
   const [mealPreference, setMealPreference] = useState("Before");
   const [loading, setLoading] = useState(false);
-  const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "10.164.255.159";
+  const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.1";
 
   useEffect(() => {
     if (!doctorId || !uhiNo) {
@@ -26,6 +26,8 @@ const AddMedicinePage = () => {
         [{ text: "OK" }]
       );
     }
+
+    
   }, [doctorId, uhiNo]);
 
   const handleAddMedicine = async () => {

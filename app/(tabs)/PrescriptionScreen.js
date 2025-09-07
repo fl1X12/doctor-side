@@ -1,42 +1,41 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { authAxios } from "../../lib/utils";
 
-const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "10.164.255.159";
+const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.1";
 
 export default function PrescriptionScreen() {
-  const { uhiNo, name, doctorId } = useLocalSearchParams();
+  const { patientId,uhiNo, name, doctorId } = useLocalSearchParams();
   console.log("PrescriptionScreen params:", { uhiNo, name, doctorId }); // Add this line for debugging
   const router = useRouter();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchPrescriptions = async () => {
-      setLoading(true);
-      try {
-        // Step 1: Get patient data by UHI number
-        const patientRes = await fetch(`http://${IP_ADDRESS}:5501/api/chatbot/${uhiNo}`);
-        if (!patientRes.ok) throw new Error("Failed to fetch patient info");
-        const patientData = await patientRes.json();
-        const user_id = patientData?.user?.id;
-        if (!user_id) throw new Error("User ID not found for this patient");
+useEffect(() => {
+  const fetchPrescriptions = async () => {
+    setLoading(true);
+    try {
+      // The Axios response object is stored in 'response'
+      const response = await authAxios.get(`/medicines/${patientId}`);
+      
+      // With Axios, the actual data from the server is in the `.data` property
+      // This is the only change you need!
+      setPrescriptions(response.data);
 
-        // Step 2: Get prescriptions by user_id
-        const response = await fetch(`http://${IP_ADDRESS}:5501/medicines/${user_id}`);
-        if (!response.ok) throw new Error("Failed to fetch prescriptions");
-        const data = await response.json();
-        setPrescriptions(data);
-      } catch (error) {
-        Alert.alert("Error", error.message || "Could not load prescriptions");
-        setPrescriptions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (uhiNo) fetchPrescriptions();
-  }, [uhiNo]);
+    } catch (error) {
+      // Axios will automatically jump to this catch block for network errors or bad statuses (4xx, 5xx)
+      Alert.alert("Error", error.message || "Could not load prescriptions");
+      setPrescriptions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // It's good practice to ensure patientId exists as well before fetching
+  if (uhiNo && patientId) fetchPrescriptions();
+}, [uhiNo, patientId]); // Add patientId to the dependency array
 
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, backgroundColor: "#F0F4FF" }}>

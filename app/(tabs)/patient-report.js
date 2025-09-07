@@ -61,7 +61,7 @@ export default function PatientOverviewScreen() {
         }
 
         // Step 1: Fetch patient and session info
-        const response = await fetch(`http://10.164.255.159:5501/api/patients/by/${identifier}`, {
+        const response = await fetch(`http://10.45.225.1:5501/api/patients/by/${identifier}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
 
@@ -82,7 +82,7 @@ export default function PatientOverviewScreen() {
         // Step 2: Fetch vitals using the session ID
         let vitals = {};
         if (data.session && data.session.id) {
-          const vitalsResponse = await fetch(`http://10.164.255.159:5501/api/patients/${data.session.id}/vitals`, {
+          const vitalsResponse = await fetch(`http://10.45.225.1:5501/api/patients/${data.session.id}/vitals`, {
             headers: { 'Authorization': `Bearer ${token}` },
           });
           if (vitalsResponse.ok) {

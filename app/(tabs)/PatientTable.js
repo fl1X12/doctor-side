@@ -63,9 +63,10 @@ export default function PatientTable({
              <TouchableOpacity style={styles.completeButton} onPress={(e) => { e.stopPropagation(); onMarkComplete(rowData._id); }}>
                <Text style={styles.completeButtonText}>Complete</Text>
              </TouchableOpacity>
-             <TouchableOpacity style={styles.overviewButton} onPress={(e) => handleOverviewPress(e, rowData)}>
+             
+             {/* <TouchableOpacity style={styles.overviewButton} onPress={(e) => handleOverviewPress(e, rowData)}>
                <Text style={styles.overviewButtonText}>Overview</Text>
-             </TouchableOpacity>
+             </TouchableOpacity> */}
              <TouchableOpacity style={styles.vitalButton} onPress={(e) => { e.stopPropagation(); onViewVitals(rowData); }}>
                <Text style={styles.vitalButtonText}>Vital Info</Text>
              </TouchableOpacity>

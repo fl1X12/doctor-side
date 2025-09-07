@@ -1,5 +1,4 @@
 // AuthScreen.js
-
 import {
     ActivityIndicator, // Import ScrollView
     KeyboardAvoidingView, // Import KeyboardAvoidingView

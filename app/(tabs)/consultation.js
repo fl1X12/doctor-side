@@ -1,30 +1,27 @@
 // consultation page  NOT IN USE - CONSISTS OF THE DOCTOR'S NOTES SECTION OF THE PATIENT PAGE
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
 import { Button } from 'react-native-paper';
 
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
-import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/forms/ReusableComponents';
 
-const API_BASE_URL = 'http://10.164.255.159:5501/api';
+const API_BASE_URL = 'http://110.45.225.1:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
