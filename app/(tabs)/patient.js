@@ -23,7 +23,7 @@ import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.45.225.1:5501/api';
+const API_BASE_URL = 'http://10.45.225.159:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -771,7 +771,7 @@ export default function PatientPage() {
                           router.push({
                             pathname: '/(tabs)/PrescriptionScreen',
                             params: {
-                              patientId:patientData.session.id,
+                              patientId:patientData.user.id,
                               uhiNo,
                               name,
                               doctorId: doctorId,

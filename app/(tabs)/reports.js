@@ -1,190 +1,283 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+// reports.js
 
-import { useState } from 'react';
-import { Alert, Dimensions, ScrollView, StyleSheet, TextInput, View,SafeAreaView } from 'react-native';
-import { Button, Text } from 'react-native-paper';
-import AntenatalReportList from '../../components/AntenatalReportList';
-import ScanReportList from '../../components/ScanReportList';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Text,
+  SafeAreaView,
+  Platform,
+  Image,
+  TouchableOpacity,
+  FlatList
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { WebView } from 'react-native-webview';
+import { Searchbar } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ViewerPanel from '../../components/ViewerPanel';
+import AntenatalReportList from '../../components/AntenatalReportList';
+import { authAxios, colors } from '../../lib/utils';
 
+const isWeb = Platform.OS === 'web';
 
+// --- Main Component: ReportsPage ---
 const ReportsPage = () => {
   const params = useLocalSearchParams();
-    
-    // Extract and ensure parameters are strings
-    const name = Array.isArray(params.name) ? params.name[0] : params.name;
-    const uhiNo = Array.isArray(params.uhiNo) ? params.uhiNo[0] : params.uhiNo;
-  const router = useRouter();
-  
+  const uhiNo = Array.isArray(params.uhiNo) ? params.uhiNo[0] : params.uhiNo;
 
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [antenatalSearchQuery, setAntenatalSearchQuery] = useState('');
-  
-  const screenWidth = Dimensions.get('window').width;
-  const isTabletOrLarger = screenWidth >= 768;
+  const [authToken, setAuthToken] = useState(null);
 
-  const handleItemSelect = (item) => {
-    if (!item.available) {
-      Alert.alert(
-        'Not Available',
-        'Scan not yet done/reports not available. Please check later.',
-        [{ text: 'OK' }]
-      );
+  useEffect(() => {
+    const loadToken = async () => {
+      try {
+        let token;
+        const tokenKey = 'token'; // IMPORTANT: Change this if your key is different
+
+        if (isWeb) {
+          token = localStorage.getItem(tokenKey);
+        } else {
+          token = await AsyncStorage.getItem(tokenKey);
+        }
+        setAuthToken(token);
+      } catch (e) {
+        console.error("Failed to load auth token from storage", e);
+      }
+    };
+    loadToken();
+  }, []);
+
+  const fetchReports = useCallback(async () => {
+    if (!uhiNo) {
+      setError("Patient UHI number is missing.");
+      setLoading(false);
       return;
     }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await authAxios.get(`/reports/${uhiNo}`);
+      
+      const formattedReports = response.data.map(report => ({
+        id: report.id,
+        name: report.filename,
+        uri: `${authAxios.defaults.baseURL}/reports/view/${report.id}`,
+        downloadUri: `${authAxios.defaults.baseURL}/reports/download/${report.id}`,
+        type: report.file_type,
+        available: true,
+      }));
+
+      setReports(formattedReports);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch reports';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [uhiNo]);
+
+  useEffect(() => {
+    if (uhiNo) {
+        fetchReports();
+    }
+  }, [uhiNo, fetchReports]);
+
+  const handleItemSelect = (item) => {
     setSelectedItem(item);
   };
 
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerStatus}>
+          <ActivityIndicator size="large" color={colors.adminPrimary} />
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.centerStatus}>
+          <Text style={styles.errorText}>Error fetching reports: {error}</Text>
+        </View>
+      );
+    }
+    if (reports.length === 0) {
+      return (
+        <View style={styles.centerStatus}>
+          <Text style={styles.centerStatusText}>No reports found for this patient.</Text>
+        </View>
+      );
+    }
+    return (
+      <AntenatalReportList
+        reports={reports}
+        onSelect={handleItemSelect}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
+    );
+  };
+
   return (
-    <>
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FCEFF1' }}>
-      {/* Top Header Bar */}
-      <View style={styles.topBar}>
-        <View style={styles.leftPinkBox} />
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Hinted search text"
-          placeholderTextColor="#999"
-        />
-        <View style={styles.iconGroup}>
-          <View style={styles.eyeIcon} />
-          <View style={styles.bellIcon} />
-          <View style={styles.bookIcon} />
-          <View style={styles.settingsIcon} />
-        </View>
-      </View>
-
-      {/* Title Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Reports and Scans</Text>
-      </View>
-
-      <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
         <View style={styles.leftColumn}>
-          <AntenatalReportList 
-            onSelect={handleItemSelect} 
-            searchQuery={antenatalSearchQuery}
-            setSearchQuery={setAntenatalSearchQuery}
-          />
-          <ScanReportList 
-            onSelect={handleItemSelect} 
-            searchQuery={searchQuery} 
-            setSearchQuery={setSearchQuery} 
-          />
-          <Button mode="contained" style={styles.button} onPress={() => router.push(`/(tabs)/patient?name=${encodeURIComponent(name)}&uhiNo=${encodeURIComponent(uhiNo)}`)}>
-                     
-            Doctors notes
-          </Button>
+          {renderContent()}
         </View>
-        
-        
-        <View style={[styles.rightColumn, isTabletOrLarger && styles.rightTablet]}>
-          <ViewerPanel selectedItem={selectedItem} />
+        <View style={styles.rightColumn}>
+          <ViewerPanel selectedItem={selectedItem} authToken={authToken} />
         </View>
-      </ScrollView>
-      </SafeAreaView>
-    </>
+      </View>
+    </SafeAreaView>
   );
 };
 
+// --- Combined Stylesheet ---
 const styles = StyleSheet.create({
-  topBar: {
-    backgroundColor: '#1B286B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    height: 60,
-  }, 
-  leftPinkBox: {
-    width: 70,
-    height: 28,
-    backgroundColor: '#F9CBD3',
-    borderRadius: 4,
-    marginRight: 15,
-  },
-  searchBar: {
-    flex: 1,
-    backgroundColor: '#fff',
-    height: 36,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    marginRight: 15,
-  },
-  iconGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  eyeIcon: {
-    width: 20,
-    height: 20,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginHorizontal: 4,
-  },
-  bellIcon: {
-    width: 18,
-    height: 18,
-    backgroundColor: '#fff',
-    borderRadius: 2,
-    marginHorizontal: 4,
-  },
-  bookIcon: {
-    width: 18,
-    height: 18,
-    backgroundColor: '#4a90e2',
-    borderRadius: 2,
-    marginHorizontal: 4,
-  },
-  settingsIcon: {
-    width: 18,
-    height: 18,
-    backgroundColor: '#fff',
-    borderRadius: 2,
-    marginHorizontal: 4,
-  },
-  header: {
-    width: '100%',
-    backgroundColor: '#1B286B',
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  headerText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  container: {
-    backgroundColor: '#FCEFF1',
-  },
-  inner: {
-    padding: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  leftColumn: {
-    width: '100%',
-    maxWidth: 500,
-  },
-  rightColumn: {
-    width: '100%',
-  },
-  rightTablet: {
-    width: '45%',
-    marginTop: 0,
-  },
-  button: {
-    marginTop: 10,
-    backgroundColor: '#2B2B84',
-  },
+    safeArea: {
+        flex: 1,
+        backgroundColor: colors.mainBackgroundFrom,
+    },
+    container: {
+        flex: 1,
+        flexDirection: 'row',
+        padding: 16,
+    },
+    leftColumn: {
+        flex: 1,
+        marginRight: 8,
+    },
+    rightColumn: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    centerStatus: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: colors.adminCardBackground,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.adminBorder,
+    },
+    centerStatusText: {
+        color: colors.mediumSlateText,
+        textAlign: 'center',
+        fontSize: 16,
+    },
+    errorText: {
+        color: colors.adminDanger,
+        textAlign: 'center',
+        fontSize: 16,
+        padding: 10,
+    },
+    listContainer: {
+      flex: 1,
+      backgroundColor: colors.adminCardBackground,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.adminBorder,
+    },
+    flatListContent: {
+      padding: 10,
+    },
+    header: {
+      backgroundColor: colors.veryLightPink,
+      padding: 8,
+      fontWeight: 'bold',
+      fontSize: 16,
+      marginBottom: 10,
+      borderRadius: 4,
+      color: colors.adminText,
+      textAlign: 'center',
+    },
+    searchBar: {
+      marginBottom: 10,
+      height: 40,
+      borderRadius: 8,
+    },
+    itemContainer: {
+      paddingVertical: 12,
+    },
+    itemText: {
+      fontSize: 15,
+      color: colors.mediumSlateText,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.adminBorder,
+    },
+    viewer: {
+      flex: 1,
+      backgroundColor: colors.veryLightBlue,
+      padding: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.adminBorder,
+    },
+    viewerTitle: {
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: colors.adminPrimary,
+      fontSize: 16,
+    },
+    viewerText: {
+      color: colors.adminPrimary,
+      textAlign: 'center',
+      marginTop: 50,
+    },
+    pdfContainer: {
+      flex: 1,
+      position: 'relative',
+      backgroundColor: colors.adminBackground,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    imageContainer: {
+      flex: 1,
+      backgroundColor: colors.adminBackground,
+      borderRadius: 4,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    singleImage: {
+      width: '100%',
+      height: '100%',
+      minHeight: 400,
+    },
+    mobilePdf: {
+      flex: 1,
+    },
+    webPdf: {
+      width: '100%',
+      height: '100%',
+      borderWidth: 0,
+    },
+    controlsContainer: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      flexDirection: 'row',
+    },
+    controlButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.adminPrimary,
+      borderRadius: 15,
+    },
+    controlButtonText: {
+      color: colors.adminLightText,
+      fontWeight: '500',
+    },
 });
 
 export default ReportsPage;

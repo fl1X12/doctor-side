@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { authAxios } from "../../lib/utils";
 
-const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.1";
+const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.159";
 
 export default function PrescriptionScreen() {
   const { patientId,uhiNo, name, doctorId } = useLocalSearchParams();
-  console.log("PrescriptionScreen params:", { uhiNo, name, doctorId }); // Add this line for debugging
+  console.log("PrescriptionScreen params:", { uhiNo, name, doctorId,patientId }); // Add this line for debugging
   const router = useRouter();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);

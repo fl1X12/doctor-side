@@ -1,12 +1,13 @@
+import json  # Import the json library
+import logging
 import os
-import json # Import the json library
-from flask import Flask, request, jsonify
+import shutil  # Import shutil for robust directory cleanup
+import time
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
 from sarvamai import SarvamAI
 from werkzeug.utils import secure_filename
-import logging
-import shutil # Import shutil for robust directory cleanup
 
-from dotenv import load_dotenv
 load_dotenv()
 
 # Set up basic logging
@@ -38,6 +39,10 @@ def test():
 # --- API Endpoint ---
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
+    logging.info("--- EXECUTING THE LATEST VERSION OF THE CODE ---") # Add this line
+    """
+    This endpoint receives an audio file...
+    """
     """
     This endpoint receives an audio file, transcribes it using Sarvam's
     Batch API with diarization, and returns the transcribed text.
@@ -85,8 +90,35 @@ def transcribe_audio():
             job.wait_until_complete()
             logging.info("Job completed.")
 
+            final_status = job.get_status()
+
+# Log the entire status response to see what the API is sending back
+            logging.info(f"--- FINAL JOB STATUS PAYLOAD ---")
+            logging.info(final_status)
+            logging.info(f"--------------------------------")
+
             if job.is_failed():
                 raise Exception(f"Translation job failed: {job.get_status()}")
+            
+            max_retries = 3
+            retry_delay_seconds = 5
+            final_status = None
+
+            for attempt in range(max_retries):
+                final_status = job.get_status()
+                # CORRECTED CHECK: Use dot notation and check successful_files_count
+                if final_status.successful_files_count > 0:
+                    logging.info(f"Successfully fetched job status with output files on attempt {attempt + 1}.")
+                    logging.info(f"Final Status: {final_status}")
+                    break # Exit the loop if files are found
+                
+                logging.warning(f"Attempt {attempt + 1}: Job is complete, but successful_files_count is 0. Retrying in {retry_delay_seconds}s...")
+                logging.info(f"Current Status: {final_status}")
+                time.sleep(retry_delay_seconds)
+            else: # This 'else' belongs to the 'for' loop
+                logging.error(f"Failed to get a successful file count after {max_retries} attempts. The job may have failed silently on the backend.")
+        
+            raise Exception(f"Job completed but no files were processed successfully. Last status: {final_status}")
 
             # 4. Process and return the result
             output_dir = os.path.join(app.config['UPLOAD_FOLDER'], job.job_id)

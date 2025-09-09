@@ -1,9 +1,34 @@
-import { Picker } from "@react-native-picker/picker";
+
 import Constants from "expo-constants";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { authAxios } from "../../lib/utils";
+
+const DAYS = [
+  { label: "Monday", value: "Mon" },
+  { label: "Tuesday", value: "Tue" },
+  { label: "Wednesday", value: "Wed" },
+  { label: "Thursday", value: "Thu" },
+  { label: "Friday", value: "Fri" },
+  { label: "Saturday", value: "Sat" },
+  { label: "Sunday", value: "Sun" },
+  { label: "Weekdays", value: "Weekdays" },
+  { label: "Weekends", value: "Weekends" },
+  { label: "Everyday", value: "Everyday" },
+];
+
+const TIMES = [
+  { label: "Morning", value: "Morning" },
+  { label: "Afternoon", value: "Afternoon" },
+  { label: "Evening", value: "Evening" },
+  { label: "Night", value: "Night" },
+];
+
+const MEALS = [
+  { label: "Before Meal", value: "Before" },
+  { label: "After Meal", value: "After" },
+];
 
 const AddMedicinePage = () => {
   const { uhiNo: uhiNoParam, doctorId: doctorIdParam } = useLocalSearchParams();
@@ -12,11 +37,11 @@ const AddMedicinePage = () => {
   const [doctorId, setDoctorId] = useState(doctorIdParam || "");
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
-  const [day, setDay] = useState("Mon");
-  const [timeSlot, setTimeSlot] = useState("Morning");
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [selectedTimes, setSelectedTimes] = useState([]);
   const [mealPreference, setMealPreference] = useState("Before");
   const [loading, setLoading] = useState(false);
-  const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.1";
+  const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.159";
 
   useEffect(() => {
     if (!doctorId || !uhiNo) {
@@ -26,9 +51,19 @@ const AddMedicinePage = () => {
         [{ text: "OK" }]
       );
     }
-
-    
   }, [doctorId, uhiNo]);
+
+  const toggleDay = (value) => {
+    setSelectedDays((prev) =>
+      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value]
+    );
+  };
+
+  const toggleTime = (value) => {
+    setSelectedTimes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
+    );
+  };
 
   const handleAddMedicine = async () => {
     if (!doctorId) {
@@ -47,13 +82,33 @@ const AddMedicinePage = () => {
       Alert.alert("Error", "Please enter a dosage");
       return;
     }
+    if (selectedDays.length === 0) {
+      Alert.alert("Error", "Please select at least one day");
+      return;
+    }
+    if (selectedTimes.length === 0) {
+      Alert.alert("Error", "Please select at least one time slot");
+      return;
+    }
 
     setLoading(true);
     try {
+      // Build schedule array for all combinations
+      const schedule = [];
+      selectedDays.forEach((day) => {
+        selectedTimes.forEach((time) => {
+          schedule.push({
+            day,
+            time,
+            beforeMeal: mealPreference === "Before",
+          });
+        });
+      });
+
       const payload = {
         name,
         dosage,
-        schedule: [{ day, time: timeSlot, beforeMeal: mealPreference === "Before" }],
+        schedule,
         uhi_no: uhiNo,
         doctor_id: Number(doctorId),
       };
@@ -99,37 +154,85 @@ const AddMedicinePage = () => {
           value={dosage}
           onChangeText={setDosage}
         />
+
+        {/* Multi-select Days */}
         <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Select Day</Text>
-          <Picker selectedValue={day} style={styles.picker} onValueChange={(itemValue) => setDay(itemValue)}>
-            <Picker.Item label="Monday" value="Mon" />
-            <Picker.Item label="Tuesday" value="Tue" />
-            <Picker.Item label="Wednesday" value="Wed" />
-            <Picker.Item label="Thursday" value="Thu" />
-            <Picker.Item label="Friday" value="Fri" />
-            <Picker.Item label="Saturday" value="Sat" />
-            <Picker.Item label="Sunday" value="Sun" />
-            <Picker.Item label="Weekdays" value="Weekdays" />
-            <Picker.Item label="Weekends" value="Weekends" />
-            <Picker.Item label="Everyday" value="Everyday" />
-          </Picker>
+          <Text style={styles.pickerLabel}>Select Days</Text>
+          <View style={styles.multiSelectRow}>
+            {DAYS.map((d) => (
+              <TouchableOpacity
+                key={d.value}
+                style={[
+                  styles.selectButton,
+                  selectedDays.includes(d.value) && styles.selectedButton,
+                ]}
+                onPress={() => toggleDay(d.value)}
+              >
+                <Text
+                  style={[
+                    styles.selectButtonText,
+                    selectedDays.includes(d.value) && styles.selectedButtonText,
+                  ]}
+                >
+                  {d.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
+
+        {/* Multi-select Times */}
         <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Select Time</Text>
-          <Picker selectedValue={timeSlot} style={styles.picker} onValueChange={(itemValue) => setTimeSlot(itemValue)}>
-            <Picker.Item label="Morning" value="Morning" />
-            <Picker.Item label="Afternoon" value="Afternoon" />
-            <Picker.Item label="Evening" value="Evening" />
-            <Picker.Item label="Night" value="Night" />
-          </Picker>
+          <Text style={styles.pickerLabel}>Select Time Slots</Text>
+          <View style={styles.multiSelectRow}>
+            {TIMES.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                style={[
+                  styles.selectButton,
+                  selectedTimes.includes(t.value) && styles.selectedButton,
+                ]}
+                onPress={() => toggleTime(t.value)}
+              >
+                <Text
+                  style={[
+                    styles.selectButtonText,
+                    selectedTimes.includes(t.value) && styles.selectedButtonText,
+                  ]}
+                >
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
+
+        {/* Meal Preference */}
         <View style={styles.pickerContainer}>
           <Text style={styles.pickerLabel}>Meal Preference</Text>
-          <Picker selectedValue={mealPreference} style={styles.picker} onValueChange={(itemValue) => setMealPreference(itemValue)}>
-            <Picker.Item label="Before Meal" value="Before" />
-            <Picker.Item label="After Meal" value="After" />
-          </Picker>
+          <View style={styles.multiSelectRow}>
+            {MEALS.map((m) => (
+              <TouchableOpacity
+                key={m.value}
+                style={[
+                  styles.selectButton,
+                  mealPreference === m.value && styles.selectedButton,
+                ]}
+                onPress={() => setMealPreference(m.value)}
+              >
+                <Text
+                  style={[
+                    styles.selectButtonText,
+                    mealPreference === m.value && styles.selectedButtonText,
+                  ]}
+                >
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
+
         <TouchableOpacity
           style={[styles.addButton, loading ? styles.buttonDisabled : {}]}
           onPress={handleAddMedicine}
@@ -209,17 +312,38 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderWidth: 1,
     borderColor: "#ddd",
+    padding: 10,
   },
   pickerLabel: {
     fontSize: 16,
     fontWeight: "bold",
-    marginLeft: 15,
-    marginTop: 10,
+    marginLeft: 5,
+    marginBottom: 8,
     color: "#0256A3",
   },
-  picker: {
-    width: "100%",
-    height: 50,
+  multiSelectRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+  },
+  selectButton: {
+    backgroundColor: "#E8F0FE",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    margin: 4,
+    borderWidth: 1,
+    borderColor: "#0256A3",
+  },
+  selectedButton: {
+    backgroundColor: "#0256A3",
+  },
+  selectButtonText: {
+    color: "#0256A3",
+    fontWeight: "bold",
+  },
+  selectedButtonText: {
+    color: "white",
   },
   addButton: {
     backgroundColor: "#0256A3",

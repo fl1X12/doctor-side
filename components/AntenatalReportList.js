@@ -1,37 +1,38 @@
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { FlatList, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Searchbar } from 'react-native-paper';
 
-import { antenatalReports } from '../assets/data/reportsData';
+const AntenatalReportList = ({ reports, onSelect, searchQuery, setSearchQuery }) => {
+  const filteredReports = useMemo(() => {
+    if (!searchQuery) {
+      return reports;
+    }
+    return reports.filter(report =>
+      report.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, reports]);
 
-const AntenatalReportList = ({ onSelect, searchQuery, setSearchQuery }) => {
-  const filteredReports = antenatalReports.filter(report =>
-    report.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const renderItem = ({ item }) => (
+    <TouchableOpacity onPress={() => onSelect(item)} style={styles.itemContainer}>
+      <Text style={styles.itemText}>{item.name}</Text>
+    </TouchableOpacity>
   );
-
- const handleSelect = (report) => {
-  console.log("Tapped:", report.name);
-  if (!report.available) {
-    Alert.alert("Report Not Available", "This report is not yet available. Please check back later.");
-    return;
-  }
-  onSelect(report);
-};
-
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>ANTENATAL TESTS</Text>
       <Searchbar
-        placeholder="Search antenatal reports"
+        placeholder="Search reports"
         value={searchQuery}
         onChangeText={setSearchQuery}
         style={styles.searchBar}
       />
-      {filteredReports.map((report, index) => (
-        <TouchableOpacity key={index} onPress={() => handleSelect(report)}>
-          <Text style={styles.item}>{report.name}</Text>
-        </TouchableOpacity>
-      ))}
+      <FlatList
+        data={filteredReports}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
     </View>
   );
 };
@@ -41,27 +42,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 10,
     width: '100%',
   },
   header: {
     backgroundColor: '#ffc9de',
-    padding: 6,
+    padding: 8,
     fontWeight: 'bold',
     fontSize: 16,
     marginBottom: 10,
     borderRadius: 4,
+    color: '#333',
+    textAlign: 'center',
   },
   searchBar: {
     marginBottom: 10,
     height: 40,
-    borderRadius: 4,
+    borderRadius: 8,
   },
-  item: {
-    paddingVertical: 6,
-    borderBottomColor: '#ccc',
-    borderBottomWidth: 1,
-    fontSize: 14,
+  itemContainer: {
+    paddingVertical: 12,
+  },
+  itemText: {
+    fontSize: 15,
+    color: '#444',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
   },
 });
 
