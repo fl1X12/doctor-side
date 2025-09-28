@@ -41,8 +41,7 @@ const AddMedicinePage = () => {
   const [selectedTimes, setSelectedTimes] = useState([]);
   const [mealPreference, setMealPreference] = useState("Before");
   const [loading, setLoading] = useState(false);
-  const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || "110.45.225.159";
-
+  
   useEffect(() => {
     if (!doctorId || !uhiNo) {
       Alert.alert(

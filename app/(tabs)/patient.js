@@ -23,7 +23,7 @@ import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.45.225.159:5501/api';
+const API_BASE_URL = 'http://10.5.41.120:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -378,10 +378,22 @@ export default function PatientPage() {
         const labels = sortedData.map((item) =>
             new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         );
-        let chartValues =
-            selectedParameter === 'Blood Pressure'
-                ? sortedData.map((item) => item.value?.systolic || 0)
-                : sortedData.map((item) => (typeof item.value === 'number' ? item.value : 0));
+        let chartValues;
+        if (selectedParameter === 'Blood Pressure') {
+            chartValues = sortedData.map((item) => item.value?.systolic || 0);
+        } else {
+            // For all other parameters (Hemoglobin, AFI, Weight, Glucose, Heart Rate)
+            chartValues = sortedData.map((item) => {
+                if (typeof item.value === 'number') {
+                    return item.value;
+                } else if (typeof item.value === 'string') {
+                    const numValue = parseFloat(item.value);
+                    return isNaN(numValue) ? 0 : numValue;
+                } else {
+                    return 0;
+                }
+            });
+        }
         return {
             labels: labels.length > 6 ? labels.slice(-6) : labels,
             datasets: [{ data: chartValues.length > 6 ? chartValues.slice(-6) : chartValues }],

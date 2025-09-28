@@ -3,6 +3,7 @@ import logging
 import os
 import shutil  # Import shutil for robust directory cleanup
 import time
+
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from sarvamai import SarvamAI
@@ -117,8 +118,7 @@ def transcribe_audio():
                 time.sleep(retry_delay_seconds)
             else: # This 'else' belongs to the 'for' loop
                 logging.error(f"Failed to get a successful file count after {max_retries} attempts. The job may have failed silently on the backend.")
-        
-            raise Exception(f"Job completed but no files were processed successfully. Last status: {final_status}")
+                raise Exception(f"Job completed but no files were processed successfully. Last status: {final_status}")
 
             # 4. Process and return the result
             output_dir = os.path.join(app.config['UPLOAD_FOLDER'], job.job_id)

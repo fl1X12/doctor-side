@@ -21,7 +21,7 @@ import { Button } from 'react-native-paper';
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://110.45.225.159:5501/api';
+const API_BASE_URL = 'http://10.5.41.120:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
