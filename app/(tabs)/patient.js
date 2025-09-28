@@ -378,12 +378,28 @@ export default function PatientPage() {
         const labels = sortedData.map((item) =>
             new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         );
-        let chartValues;
+
         if (selectedParameter === 'Blood Pressure') {
-            chartValues = sortedData.map((item) => item.value?.systolic || 0);
+            const systolicValues = sortedData.map((item) => item.value?.systolic || 0);
+            const diastolicValues = sortedData.map((item) => item.value?.diastolic || 0);
+            return {
+                labels: labels.length > 6 ? labels.slice(-6) : labels,
+                datasets: [
+                    {
+                        data: systolicValues.length > 6 ? systolicValues.slice(-6) : systolicValues,
+                        color: () => '#007AFF', // Blue for systolic
+                        strokeWidth: 2
+                    },
+                    {
+                        data: diastolicValues.length > 6 ? diastolicValues.slice(-6) : diastolicValues,
+                        color: () => '#28A745', // Green for diastolic
+                        strokeWidth: 2
+                    }
+                ],
+            };
         } else {
             // For all other parameters (Hemoglobin, AFI, Weight, Glucose, Heart Rate)
-            chartValues = sortedData.map((item) => {
+            const chartValues = sortedData.map((item) => {
                 if (typeof item.value === 'number') {
                     return item.value;
                 } else if (typeof item.value === 'string') {
@@ -393,11 +409,11 @@ export default function PatientPage() {
                     return 0;
                 }
             });
+            return {
+                labels: labels.length > 6 ? labels.slice(-6) : labels,
+                datasets: [{ data: chartValues.length > 6 ? chartValues.slice(-6) : chartValues }],
+            };
         }
-        return {
-            labels: labels.length > 6 ? labels.slice(-6) : labels,
-            datasets: [{ data: chartValues.length > 6 ? chartValues.slice(-6) : chartValues }],
-        };
     };
 
     const renderChart = () => {
@@ -412,6 +428,18 @@ export default function PatientPage() {
         }
         return (
             <View style={styles.chartWrapper}>
+                {selectedParameter === 'Blood Pressure' && (
+                    <View style={styles.legendContainer}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: '#007AFF' }]} />
+                            <Text style={styles.legendText}>Systolic</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: '#28A745' }]} />
+                            <Text style={styles.legendText}>Diastolic</Text>
+                        </View>
+                    </View>
+                )}
                 <LineChart
                     data={chartData}
                     width={screenWidth - 60}
@@ -924,5 +952,26 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#777',
         marginTop: 2,
+    },
+    legendContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginBottom: 10,
+        gap: 20,
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    legendColor: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+    },
+    legendText: {
+        fontSize: 12,
+        color: '#333',
+        fontWeight: '500',
     },
 });
