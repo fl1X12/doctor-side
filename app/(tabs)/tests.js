@@ -2,20 +2,20 @@ import axios from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { Button } from 'react-native-paper';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.5.41.120:5501/api';
+const API_BASE_URL = 'http://10.72.198.159:5501/api';
 
 export default function TestsPage() {
   const params = useLocalSearchParams();
