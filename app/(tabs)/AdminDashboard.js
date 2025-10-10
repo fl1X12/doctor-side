@@ -25,8 +25,6 @@ export default function AdminDashboard({
   handleAddPatient,
   handleWebExcelUpload,
   markPatientCompleted,
-  setVitalInfo,
-  setCurrentPage,
   doctorId, // ensure this prop exists
 }) {
   const router = useRouter();
@@ -122,21 +120,6 @@ export default function AdminDashboard({
       router={router}
       doctorId={doctorId}
       onMarkComplete={markPatientCompleted}
-      onViewVitals={(patient) => {
-       setVitalInfo({
-        patientId: patient._id,
-        uhiNo: patient.uhiNo,
-        patientName: patient.patientName,
-        visitDate: patient.visitDate ? new Date(patient.visitDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        temperature: patient.temperature || '',
-        respiratoryRate: patient.respiratoryRate || '',
-        oxygenSaturation: patient.oxygenSaturation || '',
-        jaundice: patient.jaundice || 'absent',
-        feet: patient.feet || 'absent',
-        weight: patient.weight || '',
-       });
-       setCurrentPage('vitalInfo');
-      }}
       onRowPress={handleRowPress}
      />
     </View>
