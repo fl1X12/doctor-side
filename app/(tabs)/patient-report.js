@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
+import { authAxios, API_BASE_URL } from '../../lib/utils';
 
 // Define the custom color palette
 const colors = {
@@ -26,25 +27,55 @@ const Icon = ({ name, color, size = 24 }) => (
 );
 
 // Speedometer Graph Component
-const SpeedometerGraph = ({ title, value = 0, maxValue = 100, size = 160 }) => {
+// thresholds format: { good: [{min, max}, ...], ok: [{min, max}, ...], bad: [{min, max}, ...] }
+// If no thresholds provided, uses percentage-based defaults
+const SpeedometerGraph = ({ title, value = 0, maxValue = 100, size = 160, showPercentage = false, thresholds = null, units = '' }) => {
   const radius = (size - 40) / 2;
   const strokeWidth = 8;
   const circumference = Math.PI * radius;
   const center = size / 2;
 
-  // Calculate percentage and determine color/status
+  // Calculate percentage for arc display
   const percentage = Math.min(Math.max(value / maxValue, 0), 1);
   let statusColor, statusText;
 
-  if (percentage <= 0.33) {
-    statusColor = colors.greenStatus; // Good
-    statusText = 'Good';
-  } else if (percentage <= 0.66) {
-    statusColor = colors.yellowStatus; // OK
-    statusText = 'OK';
+  // Determine color based on custom thresholds or default percentage thresholds
+  if (thresholds) {
+    // Check custom thresholds using actual value
+    const isInRange = (ranges) => {
+      return ranges.some(range => {
+        const min = range.min !== undefined ? range.min : -Infinity;
+        const max = range.max !== undefined ? range.max : Infinity;
+        return value >= min && value <= max;
+      });
+    };
+
+    if (thresholds.good && isInRange(thresholds.good)) {
+      statusColor = colors.greenStatus;
+      statusText = 'Good';
+    } else if (thresholds.ok && isInRange(thresholds.ok)) {
+      statusColor = colors.yellowStatus;
+      statusText = 'OK';
+    } else if (thresholds.bad && isInRange(thresholds.bad)) {
+      statusColor = colors.redStatus;
+      statusText = 'Bad';
+    } else {
+      // Default if value doesn't match any range
+      statusColor = colors.mediumSlateText;
+      statusText = 'N/A';
+    }
   } else {
-    statusColor = colors.redStatus; // Bad
-    statusText = 'Bad';
+    // Default percentage-based thresholds
+    if (percentage > 0.66) {
+      statusColor = colors.greenStatus; // Good (above 66%)
+      statusText = 'Good';
+    } else if (percentage >= 0.33) {
+      statusColor = colors.yellowStatus; // OK (33% to 66%)
+      statusText = 'OK';
+    } else {
+      statusColor = colors.redStatus; // Bad (below 33%)
+      statusText = 'Bad';
+    }
   }
 
   // Calculate arc path for the meter
@@ -86,11 +117,11 @@ const SpeedometerGraph = ({ title, value = 0, maxValue = 100, size = 160 }) => {
             x={center}
             y={center - 10}
             textAnchor="middle"
-            fontSize="18"
+            fontSize="16"
             fontWeight="bold"
             fill={colors.darkSlateText}
           >
-            {value}
+            {value}{showPercentage ? '%' : ''}{units ? ` ${units}` : ''}
           </SvgText>
           <SvgText
             x={center}
@@ -114,6 +145,8 @@ export default function PatientOverviewScreen() {
   const [patientData, setPatientData] = useState(null);
   const [examData, setExamData] = useState({});
   const [vitalsData, setVitalsData] = useState(null);
+  const [complianceData, setComplianceData] = useState(null);
+  const [medicines, setMedicines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -122,6 +155,28 @@ export default function PatientOverviewScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const timeframeOptions = ['1 week', '2 weeks', '1 Month', '2 Months'];
+
+  // Helper function to map display timeframe to API key
+  const getTimeframePeriodKey = (timeframe) => {
+    const mapping = {
+      '1 week': '1-week',
+      '2 weeks': '2-weeks',
+      '1 Month': '1-month',
+      '2 Months': '2-months'
+    };
+    return mapping[timeframe] || '1-week';
+  };
+
+  // Get vitals data for the currently selected timeframe
+  const getCurrentPeriodVitalsData = () => {
+    if (!vitalsData) return null;
+    const periodKey = getTimeframePeriodKey(selectedTimeframe);
+    console.log(`Selected timeframe: ${selectedTimeframe}, Period key: ${periodKey}`);
+    console.log('Period vitals:', vitalsData[periodKey]);
+    return vitalsData[periodKey] || null;
+  };
+
+  const currentPeriodVitals = getCurrentPeriodVitalsData();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -150,43 +205,45 @@ export default function PatientOverviewScreen() {
         }
 
         // Step 1: Fetch patient and session info
-        const response = await fetch(`http://10.72.198.159:5501/api/patients/by/${identifier}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            Alert.alert("Session Expired", "Please log in again.");
-            router.replace('/admin');
-          } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to fetch data');
-          }
-          return;
-        }
-
-        const data = await response.json();
+        const response = await authAxios.get(`/patients/by/${identifier}`);
+        const data = response.data;
         setPatientData(data); // data is { user: {...}, session: {...} }
 
         // Step 2: Fetch vitals using the session ID
         let vitals = {};
         if (data.session && data.session.id) {
-          const vitalsResponse = await fetch(`http://10.72.198.159:5501/api/patients/${data.session.id}/vitals`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (vitalsResponse.ok) {
-            vitals = await vitalsResponse.json();
+          try {
+            const vitalsResponse = await authAxios.get(`/patients/${data.session.id}/vitals`);
+            vitals = vitalsResponse.data;
+          } catch (err) {
+            console.warn("Failed to fetch vitals:", err);
           }
         }
 
         // Step 3: Fetch vitals summary using the user ID
         if (data.user && data.user.id) {
-          const vitalsSummaryResponse = await fetch(`http://10.72.198.159:5501/api/patients/${data.user.id}/vitals-summary`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (vitalsSummaryResponse.ok) {
-            const vitalsSummary = await vitalsSummaryResponse.json();
-            setVitalsData(vitalsSummary);
+          try {
+            const vitalsSummaryResponse = await authAxios.get(`/patients/${data.user.id}/vitals-summary`);
+            setVitalsData(vitalsSummaryResponse.data);
+            console.log("Fetched vitals summary:", vitalsSummaryResponse.data);
+          } catch (err) {
+            console.warn("Failed to fetch vitals summary:", err);
+          }
+
+          // Step 3a: Fetch medicine compliance stats
+          try {
+            const complianceResponse = await authAxios.get(`/medicines/${data.user.id}/stats`);
+            setComplianceData(complianceResponse.data);
+          } catch (err) {
+            console.warn("Failed to fetch compliance stats:", err);
+          }
+
+          // Step 3b: Fetch medicines list
+          try {
+            const medicinesResponse = await authAxios.get(`/medicines/${data.user.id}`);
+            setMedicines(medicinesResponse.data);
+          } catch (err) {
+            console.warn("Failed to fetch medicines:", err);
           }
         }
 
@@ -216,7 +273,13 @@ export default function PatientOverviewScreen() {
 
       } catch (err) {
         console.error("Error fetching patient details:", err);
-        setError(`Failed to load data: ${err.message}`);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          Alert.alert("Session Expired", "Please log in again.");
+          router.replace('/admin');
+        } else {
+          const errorMessage = err.response?.data?.error || err.message || 'Failed to load data';
+          setError(`Failed to load data: ${errorMessage}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -337,31 +400,67 @@ export default function PatientOverviewScreen() {
             title="Heart Rate"
             value={examData?.pulse || 0}
             maxValue={120}
+            units="bpm"
+            thresholds={{
+              good: [{min: 60, max: 100}],
+              ok: [{min: 50, max: 59}, {min: 101, max: 110}],
+              bad: [{min: 0, max: 49}, {min: 111, max: 120}]
+            }}
           />
           <SpeedometerGraph
             title="Blood Pressure"
-            value={vitalsData?.bloodPressure?.systolic || 0}
+            value={currentPeriodVitals?.bloodPressure?.systolic || 0}
             maxValue={180}
+            units="mmHg"
+            thresholds={{
+              good: [{min: 90, max: 120}],
+              ok: [{min: 121, max: 139}],
+              bad: [{min: 0, max: 89}, {min: 140, max: 180}]
+            }}
           />
           <SpeedometerGraph
             title="Temperature"
             value={examData?.temperature || 0}
             maxValue={42}
+            units="°C"
+            thresholds={{
+              good: [{min: 36.1, max: 37.2}],
+              ok: [{min: 35.5, max: 36.0}, {min: 37.3, max: 38.0}],
+              bad: [{min: 0, max: 35.4}, {min: 38.1, max: 42}]
+            }}
           />
           <SpeedometerGraph
-            title="Respiratory Rate"
-            value={examData?.respiratoryRate || 0}
-            maxValue={30}
+            title="Compliance Meter"
+            value={complianceData?.consistency || 0}
+            maxValue={100}
+            showPercentage={true}
+            thresholds={{
+              good: [{min: 67, max: 100}],
+              ok: [{min: 33, max: 66}],
+              bad: [{min: 0, max: 32}]
+            }}
           />
           <SpeedometerGraph
             title="Oxygen Saturation"
             value={examData?.oxygenSaturation || 0}
             maxValue={100}
+            units="%"
+            thresholds={{
+              good: [{min: 95, max: 100}],
+              ok: [{min: 90, max: 94}],
+              bad: [{min: 0, max: 89}]
+            }}
           />
           <SpeedometerGraph
-            title="Weight"
-            value={vitalsData?.weight || examData?.weight || 0}
-            maxValue={150}
+            title="AFI"
+            value={currentPeriodVitals?.afi || examData?.afi || 0}
+            maxValue={30}
+            units="cm"
+            thresholds={{
+              good: [{min: 8, max: 18}],
+              ok: [{min: 5, max: 7.9}, {min: 18.1, max: 24}],
+              bad: [{min: 0, max: 4.9}, {min: 24.1, max: 30}]
+            }}
           />
         </View>
 
@@ -396,27 +495,23 @@ export default function PatientOverviewScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.miniWindowContent}>
-              <Text style={styles.contentTitle}>Quick Actions</Text>
+            <ScrollView style={styles.miniWindowContent}>
+              <Text style={styles.prescriptionHeading}>Prescription for {patientData.user.name || 'Patient'}</Text>
 
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>📊 View Trends</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>📋 Export Data</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>⚙️ Settings</Text>
-              </TouchableOpacity>
-
-              <View style={styles.infoSection}>
-                <Text style={styles.infoTitle}>Patient Status</Text>
-                <Text style={styles.infoText}>Last updated: {currentTime}</Text>
-                <Text style={styles.infoText}>Data range: {selectedTimeframe}</Text>
-              </View>
-            </View>
+              {medicines.length > 0 ? (
+                medicines.map((medicine, index) => (
+                  <View key={index} style={styles.prescriptionCard}>
+                    <Text style={styles.medicineName}>{medicine.name}</Text>
+                    <View style={styles.medicineDetail}>
+                      <Text style={styles.medicineLabel}>Dosage: </Text>
+                      <Text style={styles.medicineValue}>{medicine.dosage}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noMedicinesText}>No prescriptions available</Text>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -755,5 +850,54 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         textAlign: 'center',
         fontWeight: '500',
+    },
+
+    // Prescription Card Styles
+    prescriptionHeading: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: colors.darkSlateText,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    prescriptionCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: colors.lightBlue,
+        shadowColor: colors.lightBlue,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    medicineName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.darkSlateText,
+        marginBottom: 10,
+    },
+    medicineDetail: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    medicineLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.mediumSlateText,
+    },
+    medicineValue: {
+        fontSize: 14,
+        color: colors.darkSlateText,
+    },
+    noMedicinesText: {
+        fontSize: 16,
+        color: colors.mediumSlateText,
+        textAlign: 'center',
+        marginTop: 20,
+        fontStyle: 'italic',
     },
 });
