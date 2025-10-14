@@ -824,6 +824,22 @@ export default function PatientPage() {
                     </Button>
                     <Button
                         mode="contained"
+                        style={[styles.navigateButton, { backgroundColor: '#FF9800' }]} // Orange color for distinction
+                        onPress={() => {
+                          router.push({
+                            pathname: '/(tabs)/MedicineStats',
+                            params: {
+                              userId: patientData.user.id,
+                              uhiNo,
+                              name,
+                            },
+                          });
+                        }}
+                    >
+                        Medicine Stats
+                    </Button>
+                    <Button
+                        mode="contained"
                         style={styles.navigateButton}
                         onPress={() => router.push(`/(tabs)/reports?name=${name}&uhiNo=${uhiNo}`)}
                     >
