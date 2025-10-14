@@ -383,7 +383,7 @@ const MEALS = [
 
 const AddMedicinePage = () => {
   const router = useRouter();
-  const { uhiNo: uhiNoParam, doctorId: doctorIdParam } = useLocalSearchParams();
+  const { uhiNo: uhiNoParam, doctorId: doctorIdParam, patientId: patientIdParam, name: nameParam } = useLocalSearchParams();
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
   const [duration, setDuration] = useState(""); // Number of days
@@ -391,17 +391,19 @@ const AddMedicinePage = () => {
   const [mealPreference, setMealPreference] = useState("Before");
   const [uhiNo, setUhiNo] = useState(uhiNoParam || "");
   const [doctorId, setDoctorId] = useState(doctorIdParam || "");
+  const [patientId, setPatientId] = useState(patientIdParam || "");
+  const [patientName, setPatientName] = useState(nameParam || "");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!doctorId || !uhiNo) {
+    if (!doctorId || !uhiNo || !patientId) {
       Alert.alert(
         "Warning",
-        "Doctor ID or UHI No not available. Please navigate back and try again.",
+        "Required parameters (Doctor ID, UHI No, or Patient ID) are not available. Please navigate back and try again.",
         [{ text: "OK" }]
       );
     }
-  }, [doctorId, uhiNo]);
+  }, [doctorId, uhiNo, patientId]);
 
   const toggleTime = (value) => {
     setSelectedTimes((prev) =>
@@ -416,6 +418,10 @@ const AddMedicinePage = () => {
     }
     if (!uhiNo.trim()) {
       Alert.alert("Error", "Please enter a UHI Number");
+      return;
+    }
+    if (!patientId) {
+      Alert.alert("Error", "Patient ID is missing. Please navigate back and try again.");
       return;
     }
     if (!name.trim()) {
@@ -463,10 +469,10 @@ const AddMedicinePage = () => {
       const { data } = await authAxios.post(`/medicines/add`, payload);
       if (data) {
         Alert.alert("Success", "Medicine added successfully!", [
-          { text: "OK", onPress: () => router.replace({ pathname: "/patient/prescription", params: { uhiNo, doctorId } }) }
+          { text: "OK", onPress: () => router.replace({ pathname: "/(tabs)/PrescriptionScreen", params: { patientId, uhiNo, name: patientName, doctorId } }) }
         ]);
       } else {
-        Alert.alert("Error", responseData.message || "Failed to add medicine");
+        Alert.alert("Error", "Failed to add medicine");
       }
     } catch (error) {
       console.error("Error adding medicine:", error);
