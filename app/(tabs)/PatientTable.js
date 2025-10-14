@@ -9,6 +9,7 @@ export default function PatientTable({
  router,
  onMarkComplete,
  onViewVitals,
+ doctorId,
 }) {
  const handleRowPress = (rowData) => {
   const pathname = isCompletedView ? '/patient-report' : '/patient';
@@ -67,6 +68,10 @@ export default function PatientTable({
              <TouchableOpacity style={styles.overviewButton} onPress={(e) => handleOverviewPress(e, rowData)}>
                <Text style={styles.overviewButtonText}>Overview</Text>
              </TouchableOpacity>
+
+             <TouchableOpacity style={styles.vitalButton} onPress={(e) => { e.stopPropagation(); handleRowPress(rowData); }}>
+                <Text style={styles.vitalButtonText}>Consultation</Text>
+              </TouchableOpacity>
            </View>
          </View>
       )}

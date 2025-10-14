@@ -23,7 +23,7 @@ import { DropdownInput, LabeledInput, RadioButtonInput } from '../../components/
 import NoteEditor from '../../components/note-editor/NoteEditor';
 import colors from '../../constants/Colors';
 
-const API_BASE_URL = 'http://10.72.198.159:5501/api';
+const API_BASE_URL = 'http://10.104.185.219:5501/api';
 
 // --- Axios Instance & Interceptors ---
 const authAxios = axios.create({
@@ -822,22 +822,7 @@ export default function PatientPage() {
                     >
                         Prescription
                     </Button>
-                    <Button
-                        mode="contained"
-                        style={[styles.navigateButton, { backgroundColor: '#FF9800' }]} // Orange color for distinction
-                        onPress={() => {
-                          router.push({
-                            pathname: '/(tabs)/MedicineStats',
-                            params: {
-                              userId: patientData.user.id,
-                              uhiNo,
-                              name,
-                            },
-                          });
-                        }}
-                    >
-                        Medicine Stats
-                    </Button>
+                    
                     <Button
                         mode="contained"
                         style={styles.navigateButton}
