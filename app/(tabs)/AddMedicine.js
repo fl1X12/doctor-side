@@ -463,10 +463,10 @@ const AddMedicinePage = () => {
       const { data } = await authAxios.post(`/medicines/add`, payload);
       if (data) {
         Alert.alert("Success", "Medicine added successfully!", [
-          { text: "OK", onPress: () => router.replace({ pathname: "/patient/prescription", params: { uhiNo, doctorId } }) }
+          { text: "OK", onPress: () => router.replace({ pathname: "/(tabs)/PrescriptionScreen", params: { uhiNo, doctorId } }) }
         ]);
       } else {
-        Alert.alert("Error", responseData.message || "Failed to add medicine");
+        Alert.alert("Error", data.message || "Failed to add medicine");
       }
     } catch (error) {
       console.error("Error adding medicine:", error);

@@ -1,10 +1,11 @@
-import Constants from "expo-constants";
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View, StyleSheet, Dimensions } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { PieChart } from "react-native-chart-kit"; // For pie chart
 import { Appbar } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { PieChart } from "react-native-chart-kit"; // For pie chart
 import { authAxios } from "../../lib/utils";
 
 const { width } = Dimensions.get("window");
@@ -15,6 +16,7 @@ export default function PrescriptionScreen() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, taken: 0, notTaken: 0, consistency: 0 });
+  const [doctorNames, setDoctorNames] = useState({}); // Store doctor names by ID
 
   useEffect(() => {
     const fetchPrescriptions = async () => {
@@ -23,6 +25,9 @@ export default function PrescriptionScreen() {
         const response = await authAxios.get(`/medicines/${patientId}`);
         setPrescriptions(response.data);
         calculateStats(response.data);
+        console.log('Prescription data:', response.data);
+        // Fetch doctor name from AsyncStorage
+        await fetchDoctorName();
       } catch (error) {
         Alert.alert("Error", error.message || "Could not load prescriptions");
         setPrescriptions([]);
@@ -33,6 +38,21 @@ export default function PrescriptionScreen() {
 
     if (patientId) fetchPrescriptions();
   }, [patientId]);
+
+  const fetchDoctorName = async () => {
+    try {
+      const doctorInfoString = await AsyncStorage.getItem('doctorInfo');
+      if (doctorInfoString) {
+        const doctorInfo = JSON.parse(doctorInfoString);
+        setDoctorNames({ [doctorId]: doctorInfo.name || 'Unknown Doctor' });
+      } else {
+        setDoctorNames({ [doctorId]: 'Unknown Doctor' });
+      }
+    } catch (error) {
+      console.error('Error fetching doctor name from storage:', error);
+      setDoctorNames({ [doctorId]: 'Unknown Doctor' });
+    }
+  };
 
   const calculateStats = (medicines) => {
     let total = 0;
@@ -94,15 +114,23 @@ export default function PrescriptionScreen() {
                 {prescriptions.length === 0 ? (
                   <Text style={styles.noDataText}>No prescriptions found.</Text>
                 ) : (
-                  prescriptions.map((item, idx) => (
-                    <View key={idx} style={styles.prescriptionCard}>
-                      <Text style={styles.medicineName}>{item.name}</Text>
-                      <Text>Dosage: {item.dosage}</Text>
-                      <Text>Schedule: {item.schedule?.map(s => `${s.day} ${s.time} (${s.beforeMeal ? "Before" : "After"} Meal)`).join(", ")}</Text>
-                      <Text>Prescribed by: {item.doctor_id}</Text>
-                      <Text>Status: {item.taken === true ? "Taken" : item.taken === false ? "Not Taken" : "Unknown"}</Text>
-                    </View>
-                  ))
+                  prescriptions.map((item, idx) => {
+                    // Extract unique time slots and meal preference
+                    const timeSlots = [...new Set(item.schedule?.map(s => s.time) || [])].join(', ');
+                    const mealPreference = item.schedule?.[0]?.beforeMeal ? 'Before Meal' : 'After Meal';
+                    
+                    return (
+                      <View key={idx} style={styles.prescriptionCard}>
+                        <Text style={styles.medicineName}>{item.name}</Text>
+                        <Text>Dosage: {item.dosage}</Text>
+                        <Text>Duration: {item.schedule?.length ? `${item.schedule.length} days` : 'N/A'}</Text>
+                        <Text>Time Slots: {timeSlots}</Text>
+                        <Text>Meal Preference: {mealPreference}</Text>
+                        <Text>Prescribed by: {doctorNames[doctorId] || 'Loading...'}</Text>
+                        
+                      </View>
+                    );
+                  })
                 )}
               </View>
 
@@ -194,3 +222,4 @@ const styles = StyleSheet.create({
   addButton: { backgroundColor: "#0256A3", paddingVertical: 15, borderRadius: 10, alignItems: "center", marginTop: 20 },
   addButtonText: { color: "white", fontWeight: "bold", fontSize: 18 },
 });
+
